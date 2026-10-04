@@ -141,8 +141,9 @@ function json(data,status=200){
 }
 function normalizePhone(v){return String(v??"").replace(/\D/g,"");}
 
-async function tokenForPhone(phone){
- const bytes=new TextEncoder().encode(phone);
+async function tokenForCustomer(phone,name){
+ const value=normalizePhone(phone)+"|"+String(name??"").trim().toLowerCase().replace(/\s+/g," ");
+ const bytes=new TextEncoder().encode(value);
  const hash=await crypto.subtle.digest("SHA-256",bytes);
  return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,"0")).join("").slice(0,32);
 }
@@ -202,7 +203,7 @@ export default {
    for(let i=0;i<clients.length;i+=50){
     const chunk=clients.slice(i,i+50);
     await Promise.all(chunk.map(async c=>{
-     const token=await tokenForPhone(normalizePhone(c.phone));
+     const token=await tokenForCustomer(c.phone,c.name);
      await env.BALANCES.put(DATA_PREFIX+token,JSON.stringify(c));
      links.push({name:c.name,url:`${url.origin}/c/${token}`});
     }));
