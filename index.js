@@ -159,11 +159,47 @@ async function smartflowLoginTest(request, env) {
         return json({ ok: false, stage: "locate-login-fields", launched, sessionId: browser.sessionId(), ...result }, 422);
       }
 
-      const userSelector = result.usernameSelector.id ? `#${CSS.escape(result.usernameSelector.id)}` : `input[name="${result.usernameSelector.name}"]`;
-      const passSelector = result.passwordSelector.id ? `#${CSS.escape(result.passwordSelector.id)}` : `input[name="${result.passwordSelector.name}"]`;
-      // Puppeteer does not have Playwright fill(); set the fields directly.
-      await page.$eval(userSelector, (el, value) => { el.value = value; el.dispatchEvent(new Event("input", { bubbles: true })); }, env.SMARTFLOW_USERNAME);
-      await page.$eval(passSelector, (el, value) => { el.value = value; el.dispatchEvent(new Event("input", { bubbles: true })); }, env.SMARTFLOW_PASSWORD);
+      // Do not use CSS.escape() here: Cloudflare Workers do not expose the
+      // browser CSS global to Worker-side code. Find the exact DOM elements
+      // by their discovered id/name and set their values through ElementHandle.
+      const allInputs = await page.$$("input");
+      const findInput = async (meta) => {
+        for (const handle of allInputs) {
+          const props = await handle.evaluate((el) => ({
+            id: el.id || "",
+            name: el.name || "",
+            type: el.type || "",
+          }));
+          if ((meta.id && props.id === meta.id) || (!meta.id && meta.name && props.name === meta.name)) {
+            return handle;
+          }
+        }
+        return null;
+      };
+
+      const userHandle = await findInput(result.usernameSelector);
+      const passHandle = await findInput(result.passwordSelector);
+      if (!userHandle || !passHandle) {
+        return json({ ok: false, stage: "resolve-login-fields", launched, sessionId: browser.sessionId() }, 422);
+      }
+
+      await userHandle.evaluate((el, value) => {
+        el.value = value;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      }, env.SMARTFLOW_USERNAME);
+
+      await passHandle.evaluate((el, value) => {
+        el.value = value;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      }, env.SMARTFLOW_PASSWORD);
+
+      await userHandle.dispose();
+      await passHandle.dispose();
+      for (const handle of allInputs) {
+        try { await handle.dispose(); } catch (_) {}
+      }
 
       const submit = await page.$('button[type="submit"], input[type="submit"], button, input[type="button"]');
       if (!submit) return json({ ok: false, stage: "locate-login-button", launched, sessionId: browser.sessionId() }, 422);
