@@ -331,7 +331,20 @@ export default {
 
     if (url.pathname === "/admin/diagnostic") return diagnostic(request, env);
     if (url.pathname === "/admin/smartflow-login-test") return smartflowLoginTest(request, env);
-    if (url.pathname === "/admin/report-discovery") return smartflowReportDiscovery(request, env);
+    if (url.pathname === "/admin/report-discovery") {
+      if (request.method === "GET" && !tokenOK(request, env)) {
+        return new Response(`<!doctype html><html><body style="font-family:Arial;padding:30px"><h2>SmartFlow Report Discovery</h2><p>Enter your admin test token.</p><form method="POST"><input name="token" type="password" style="padding:12px;width:280px"/><button style="padding:12px;margin-left:8px">Run Discovery</button></form></body></html>`, {headers:{"content-type":"text/html;charset=UTF-8"}});
+      }
+      if (request.method === "POST" && !tokenOK(request, env)) {
+        const form = await request.formData().catch(()=>null);
+        const supplied = form?.get("token");
+        if (!supplied || supplied !== env.ADMIN_TEST_TOKEN) return json({error:"Unauthorized"},401);
+        const headers = new Headers(request.headers);
+        headers.set("x-admin-token", supplied);
+        request = new Request(request.url, {method:"GET", headers});
+      }
+      return smartflowReportDiscovery(request, env);
+    }
 
     if (url.pathname === "/api/check" && request.method === "POST") {
       // The public lookup is intentionally not enabled yet until SmartFlow's
