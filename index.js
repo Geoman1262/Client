@@ -1,31 +1,169 @@
-const CLIENTS = [{"name":"Abdalla hallak","phone":"76590772","remaining":1710000.0},{"name":"Ahmad hassan","phone":"71387555","remaining":1100000.0},{"name":"Alain elias","phone":"71466808","remaining":2682000.0},{"name":"Andre hanna","phone":"70562739","remaining":2780000.0},{"name":"Assaad elias","phone":"70626585","remaining":600000.0},{"name":"Azo kharmandayan","phone":"3574749","remaining":14032000.0},{"name":"Chadi mansour","phone":"3013103","remaining":3340000.0},{"name":"Charbel aoun","phone":"3389919","remaining":300000.0},{"name":"Charbel samaha","phone":"71734390","remaining":14000025.0},{"name":"Christine al jerdi","phone":"81737390","remaining":1050000.0},{"name":"Dolla mansour","phone":"81374747","remaining":2320000.0},{"name":"Elias haddad","phone":"70886834","remaining":631000.0},{"name":"Elias toro","phone":"3290835","remaining":-1868000.0},{"name":"Elie abou tayeh","phone":"79192909","remaining":16769000.0},{"name":"Emil lahoud","phone":"71221201","remaining":900000.0},{"name":"Emile nemer","phone":"71439953","remaining":4618000.0},{"name":"Fadi taoum","phone":"3101351","remaining":-722000.0},{"name":"Habib elias","phone":"71110515","remaining":-5000.0},{"name":"Imad a mansour","phone":"71605590","remaining":965000.0},{"name":"Imad j mansour","phone":"71785843","remaining":-60000.0},{"name":"Jean farhat","phone":"70127354","remaining":3030000.0},{"name":"Jean srour","phone":"76824045","remaining":4000000.0},{"name":"Joe assad mansour","phone":"3222677","remaining":7210000.0},{"name":"Joe hanna","phone":"71427006","remaining":1550000.0},{"name":"Joelle chalhoub","phone":"70449266","remaining":350000.0},{"name":"Joseph dagher","phone":"70240450","remaining":5116000.0},{"name":"Joseph rizk","phone":"70878320","remaining":3945000.0},{"name":"Kamil obeid","phone":"70462950","remaining":580000.0},{"name":"Kamil tahech","phone":"76959391","remaining":1270000.0},{"name":"Luci joun","phone":"71714911","remaining":12945000.0},{"name":"Marie nasr","phone":"76190701","remaining":1490000.0},{"name":"Mazen mansour","phone":"70105552","remaining":600000.0},{"name":"Moufid mansour","phone":"71635519","remaining":1260000.0},{"name":"Nabil choufani","phone":"70537235","remaining":3629000.0},{"name":"Nathali gharib","phone":"70583653","remaining":1090000.0},{"name":"Rabih taoum","phone":"76812710","remaining":1090000.0},{"name":"Raymond nasr","phone":"3489336","remaining":1770000.0},{"name":"Rita kharmandayan","phone":"3926896","remaining":3080000.0},{"name":"Sahar kandar","phone":"70538937","remaining":3525000.0},{"name":"Tony tarabay","phone":"3473525","remaining":590.0},{"name":"Yossef harb","phone":"71280754","remaining":2855000.0},{"name":"Yossef hleihl","phone":"71290540","remaining":35.0}];
+const DATA_KEY = "clients";
 
-const HTML = `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cellix — Check Your Balance</title>
+const PAGE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cellix — Check Your Balance</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 40px rgba(20,40,80,.1)}.logo{font-size:30px;font-weight:800;color:#1677ff}.sub{color:#697386;margin:6px 0 25px}label{display:block;font-size:13px;font-weight:700;margin:16px 0 7px}input{width:100%;height:52px;border:1px solid #d9e0ea;border-radius:13px;padding:0 15px;font-size:16px;outline:none}input:focus{border-color:#1677ff}button{width:100%;height:54px;border:0;border-radius:14px;background:#1677ff;color:#fff;font-size:16px;font-weight:800;margin-top:20px;cursor:pointer}.result{margin-top:22px;border-radius:18px;padding:20px;display:none}.ok{background:#eef8f1;border:1px solid #ccebd5}.none{background:#f7f8fa;border:1px solid #e2e6ec}.name{font-size:16px;font-weight:800}.amount{font-size:30px;font-weight:900;margin-top:8px}.note{font-size:13px;color:#687386;margin-top:8px}.err{color:#c62828;font-size:14px;margin-top:14px;display:none}.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:22px}
-</style></head><body><main class="card"><div class="logo">Cellix</div><div class="sub">Check your outstanding balance</div>
-<label>Phone Number</label><input id="phone" inputmode="numeric" placeholder="e.g. 70123456">
-<label>Full Name</label><input id="name" autocomplete="name" placeholder="Enter your full name">
-<button id="check">Check Balance</button><div id="err" class="err"></div><section id="result" class="result"><div id="resultName" class="name"></div><div id="resultAmount" class="amount"></div><div id="resultNote" class="note"></div></section><div class="small">Cellix</div></main>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 40px rgba(20,40,80,.10)}
+.logo{font-size:40px;font-weight:800;color:#1677ff;letter-spacing:-1.5px}
+.sub{color:#697386;margin:7px 0 25px;font-size:16px}
+label{display:block;font-size:13px;font-weight:700;margin:16px 0 7px}
+input{width:100%;height:52px;border:1px solid #d9e0ea;border-radius:13px;padding:0 15px;font-size:16px;outline:none}
+input:focus{border-color:#1677ff;box-shadow:0 0 0 3px rgba(22,119,255,.10)}
+button{width:100%;height:54px;border:0;border-radius:14px;background:#1677ff;color:#fff;font-size:16px;font-weight:800;margin-top:20px;cursor:pointer}
+.result{margin-top:22px;border-radius:18px;padding:20px;display:none}
+.ok{background:#eef8f1;border:1px solid #ccebd5}
+.none{background:#f7f8fa;border:1px solid #e2e6ec}
+.name{font-size:16px;font-weight:800}
+.amount{font-size:30px;font-weight:900;margin-top:8px}
+.note{font-size:13px;color:#687386;margin-top:8px}
+.err{color:#c62828;font-size:14px;margin-top:14px;display:none}
+.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:22px}
+</style>
+</head>
+<body>
+<main class="card">
+<div class="logo">Cellix</div>
+<div class="sub">Check your outstanding balance</div>
+<label>Phone Number</label>
+<input id="phone" inputmode="numeric" autocomplete="tel" placeholder="Enter phone number">
+<label>Full Name</label>
+<input id="name" autocomplete="name" placeholder="Enter your full name">
+<button id="check">Check Balance</button>
+<div id="err" class="err"></div>
+<section id="result" class="result">
+<div id="resultName" class="name"></div>
+<div id="resultAmount" class="amount"></div>
+<div id="resultNote" class="note"></div>
+</section>
+<div class="small">Cellix</div>
+</main>
 <script>
-const clients=[{"name":"Abdalla hallak","phone":"76590772","remaining":1710000.0},{"name":"Ahmad hassan","phone":"71387555","remaining":1100000.0},{"name":"Alain elias","phone":"71466808","remaining":2682000.0},{"name":"Andre hanna","phone":"70562739","remaining":2780000.0},{"name":"Assaad elias","phone":"70626585","remaining":600000.0},{"name":"Azo kharmandayan","phone":"3574749","remaining":14032000.0},{"name":"Chadi mansour","phone":"3013103","remaining":3340000.0},{"name":"Charbel aoun","phone":"3389919","remaining":300000.0},{"name":"Charbel samaha","phone":"71734390","remaining":14000025.0},{"name":"Christine al jerdi","phone":"81737390","remaining":1050000.0},{"name":"Dolla mansour","phone":"81374747","remaining":2320000.0},{"name":"Elias haddad","phone":"70886834","remaining":631000.0},{"name":"Elias toro","phone":"3290835","remaining":-1868000.0},{"name":"Elie abou tayeh","phone":"79192909","remaining":16769000.0},{"name":"Emil lahoud","phone":"71221201","remaining":900000.0},{"name":"Emile nemer","phone":"71439953","remaining":4618000.0},{"name":"Fadi taoum","phone":"3101351","remaining":-722000.0},{"name":"Habib elias","phone":"71110515","remaining":-5000.0},{"name":"Imad a mansour","phone":"71605590","remaining":965000.0},{"name":"Imad j mansour","phone":"71785843","remaining":-60000.0},{"name":"Jean farhat","phone":"70127354","remaining":3030000.0},{"name":"Jean srour","phone":"76824045","remaining":4000000.0},{"name":"Joe assad mansour","phone":"3222677","remaining":7210000.0},{"name":"Joe hanna","phone":"71427006","remaining":1550000.0},{"name":"Joelle chalhoub","phone":"70449266","remaining":350000.0},{"name":"Joseph dagher","phone":"70240450","remaining":5116000.0},{"name":"Joseph rizk","phone":"70878320","remaining":3945000.0},{"name":"Kamil obeid","phone":"70462950","remaining":580000.0},{"name":"Kamil tahech","phone":"76959391","remaining":1270000.0},{"name":"Luci joun","phone":"71714911","remaining":12945000.0},{"name":"Marie nasr","phone":"76190701","remaining":1490000.0},{"name":"Mazen mansour","phone":"70105552","remaining":600000.0},{"name":"Moufid mansour","phone":"71635519","remaining":1260000.0},{"name":"Nabil choufani","phone":"70537235","remaining":3629000.0},{"name":"Nathali gharib","phone":"70583653","remaining":1090000.0},{"name":"Rabih taoum","phone":"76812710","remaining":1090000.0},{"name":"Raymond nasr","phone":"3489336","remaining":1770000.0},{"name":"Rita kharmandayan","phone":"3926896","remaining":3080000.0},{"name":"Sahar kandar","phone":"70538937","remaining":3525000.0},{"name":"Tony tarabay","phone":"3473525","remaining":590.0},{"name":"Yossef harb","phone":"71280754","remaining":2855000.0},{"name":"Yossef hleihl","phone":"71290540","remaining":35.0}];
-const normPhone=v=>String(v||"").replace(/\\D/g,"");
-const normName=v=>String(v||"").trim().toLowerCase().replace(/\\s+/g," ");
+const normPhone=v=>String(v??"").replace(/\\D/g,"");
+const normName=v=>String(v??"").trim().toLowerCase().replace(/\\s+/g," ");
 const money=n=>new Intl.NumberFormat("en-US").format(Number(n)||0)+" LBP";
-document.getElementById("check").onclick=()=>{
- const phone=normPhone(document.getElementById("phone").value),name=normName(document.getElementById("name").value),err=document.getElementById("err"),box=document.getElementById("result");
+document.getElementById("check").onclick=async()=>{
+ const phone=normPhone(document.getElementById("phone").value);
+ const name=normName(document.getElementById("name").value);
+ const err=document.getElementById("err"),box=document.getElementById("result");
  err.style.display="none";box.style.display="none";
  if(!phone||!name){err.textContent="Please enter your phone number and full name.";err.style.display="block";return;}
- const c=clients.find(x=>normPhone(x.phone)===phone&&normName(x.name)===name);
- box.style.display="block";box.className="result "+(c?"ok":"none");
- document.getElementById("resultName").textContent=c?c.name:"";
- document.getElementById("resultAmount").textContent=c?money(c.remaining):"No balance found";
- document.getElementById("resultNote").textContent=c?"Remaining balance":"No matching customer was found.";
+ const btn=document.getElementById("check"); btn.disabled=true; btn.textContent="Checking...";
+ try{
+  const r=await fetch("/api/check?phone="+encodeURIComponent(phone)+"&name="+encodeURIComponent(name));
+  const d=await r.json();
+  if(d.ok&&d.customer){
+   box.className="result ok"; box.style.display="block";
+   document.getElementById("resultName").textContent=d.customer.name;
+   document.getElementById("resultAmount").textContent=money(d.customer.remaining);
+   document.getElementById("resultNote").textContent="Remaining balance";
+  }else{
+   box.className="result none"; box.style.display="block";
+   document.getElementById("resultName").textContent="";
+   document.getElementById("resultAmount").textContent="No balance found";
+   document.getElementById("resultNote").textContent=d.message||"No matching customer was found.";
+  }
+ }catch(e){err.textContent="Unable to check balance. Please try again.";err.style.display="block";}
+ btn.disabled=false;btn.textContent="Check Balance";
+};
+</script>
+</body></html>`;
+
+const ADMIN = `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cellix Admin — Upload Excel</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+body{font-family:Arial;background:#f4f7fb;margin:0;padding:24px;color:#172033}.box{max-width:520px;margin:30px auto;background:#fff;padding:26px;border-radius:22px;box-shadow:0 10px 35px #0001}h1{color:#1677ff}input,button{width:100%;height:50px;margin:8px 0;border-radius:10px;border:1px solid #ccd4df;padding:0 12px;box-sizing:border-box}button{background:#1677ff;color:#fff;font-weight:700;border:0}#msg{margin-top:14px;font-size:14px;white-space:pre-wrap}</style>
+</head><body><div class="box"><h1>Cellix</h1><h2>Upload Customer Balances</h2>
+<p>Upload the new Excel file. It will replace the previous customer data.</p>
+<input id="token" type="password" placeholder="Admin token">
+<input id="file" type="file" accept=".xlsx,.xls,.csv">
+<button id="upload">Upload & Replace Data</button><div id="msg"></div></div>
+<script>
+document.getElementById("upload").onclick=async()=>{
+ const token=document.getElementById("token").value;
+ const f=document.getElementById("file").files[0], msg=document.getElementById("msg");
+ if(!token||!f){msg.textContent="Enter the token and select an Excel file.";return;}
+ msg.textContent="Reading Excel...";
+ try{
+  const buf=await f.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array"});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+  if(!rows.length) throw new Error("The Excel file is empty.");
+  const header=rows[0].map(v=>String(v).trim().toLowerCase());
+  const find=(...names)=>{for(const n of names){const i=header.indexOf(n.toLowerCase());if(i>=0)return i;}return -1;};
+  const nameI=find("name","client name","customer name");
+  const phoneI=find("contact number","phone","phone number","contact");
+  const remI=find("remaining balance","remaining","balance due","amount due");
+  if(nameI<0||phoneI<0||remI<0) throw new Error("Required columns not found. Need: Name, Contact Number, Remaining Balance.");
+  const clients=[];
+  for(let i=1;i<rows.length;i++){
+   const name=String(rows[i][nameI]??"").trim();
+   const phone=String(rows[i][phoneI]??"").trim();
+   let remaining=rows[i][remI];
+   if(name||phone){
+    remaining=Number(String(remaining??0).replace(/,/g,"").replace(/[^0-9.-]/g,""))||0;
+    clients.push({name,phone,remaining});
+   }
+  }
+  if(!clients.length) throw new Error("No customer rows found.");
+  msg.textContent="Uploading "+clients.length+" customers...";
+  const r=await fetch("/api/upload",{method:"POST",headers:{"content-type":"application/json","x-admin-token":token},body:JSON.stringify({clients})});
+  const d=await r.json();
+  msg.textContent=d.ok?"Success. "+d.count+" customers are now active.":"Error: "+(d.error||"Upload failed.");
+ }catch(e){msg.textContent="Error: "+e.message;}
 };
 </script></body></html>`;
 
-export default {async fetch(request) {
- const url=new URL(request.url);
- if(url.pathname==="/api/health") return new Response(JSON.stringify({ok:true,customers:CLIENTS.length}),{headers:{"content-type":"application/json"}});
- return new Response(HTML,{headers:{"content-type":"text/html;charset=UTF-8"}});
-}};
+function json(data,status=200){
+ return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json;charset=UTF-8","cache-control":"no-store"}});
+}
+function normalizePhone(v){return String(v??"").replace(/\D/g,"");}
+function normalizeName(v){return String(v??"").trim().toLowerCase().replace(/\s+/g," ");}
+
+export default {
+ async fetch(request, env){
+  const url=new URL(request.url);
+
+  if(url.pathname==="/admin/upload"){
+   return new Response(ADMIN,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
+  }
+
+  if(url.pathname==="/api/check"){
+   if(!env.BALANCES) return json({ok:false,message:"Balance storage is not configured."},500);
+   const phone=normalizePhone(url.searchParams.get("phone"));
+   const name=normalizeName(url.searchParams.get("name"));
+   if(!phone||!name) return json({ok:false,message:"Missing phone or name."},400);
+   const raw=await env.BALANCES.get(DATA_KEY);
+   if(!raw) return json({ok:false,message:"No customer data has been uploaded yet."},404);
+   let clients=[]; try{clients=JSON.parse(raw)}catch{return json({ok:false,message:"Stored data is invalid."},500);}
+   const customer=clients.find(c=>normalizePhone(c.phone)===phone&&normalizeName(c.name)===name);
+   return customer?json({ok:true,customer}):json({ok:false,message:"No matching customer was found."});
+  }
+
+  if(url.pathname==="/api/upload" && request.method==="POST"){
+   if(!env.BALANCES) return json({ok:false,error:"BALANCES KV binding is missing."},500);
+   const token=request.headers.get("x-admin-token")||"";
+   if(!env.ADMIN_TEST_TOKEN || token!==env.ADMIN_TEST_TOKEN) return json({ok:false,error:"Unauthorized"},401);
+   let body; try{body=await request.json()}catch{return json({ok:false,error:"Invalid JSON"},400);}
+   if(!Array.isArray(body.clients)||!body.clients.length) return json({ok:false,error:"No customer data received."},400);
+   const clients=body.clients.map(c=>({name:String(c.name??"").trim(),phone:String(c.phone??"").trim(),remaining:Number(c.remaining)||0})).filter(c=>c.name||c.phone);
+   await env.BALANCES.put(DATA_KEY,JSON.stringify(clients));
+   await env.BALANCES.put("meta",JSON.stringify({count:clients.length,updatedAt:new Date().toISOString()}));
+   return json({ok:true,count:clients.length});
+  }
+
+  if(url.pathname==="/api/health"){
+   return json({ok:true,storage:!!env.BALANCES});
+  }
+
+  return new Response(PAGE,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
+ }
+};
