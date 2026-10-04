@@ -133,8 +133,6 @@ export default {
   const url=new URL(request.url);
 
   if(url.pathname==="/admin/upload"){
-   const token=url.searchParams.get("token")||"";
-   if(!env.ADMIN_TEST_TOKEN || token!==env.ADMIN_TEST_TOKEN) return new Response("Not found",{status:404});
    return new Response(ADMIN,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
   }
 
