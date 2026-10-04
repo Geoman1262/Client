@@ -226,17 +226,46 @@ export default {
     const oldRaw=await env.BALANCES.get(DATA_KEY);
     if(oldRaw){try{allCustomers=JSON.parse(oldRaw)}catch{}}
     const makeToken=()=>{const b=new Uint8Array(16);crypto.getRandomValues(b);return Array.from(b,x=>x.toString(16).padStart(2,"0")).join("")};
-    const byKey=new Map();
-    for(const c of allCustomers){const key=normalizePhone(c.phone)||normalizeName(c.name);if(key)byKey.set(key,c);}
-    const seen=new Set(),updated=[];
+
+    // Match an incoming customer by phone OR by name, so formatting changes
+    // in the Excel phone column never create a second customer/private link.
+    const phoneKey=c=>normalizePhone(c.phone);
+    const nameKey=c=>normalizeName(c.name);
+    const findExisting=(c)=>{
+      const p=phoneKey(c), n=nameKey(c);
+      return allCustomers.find(x=>(p && phoneKey(x)===p) || (n && nameKey(x)===n));
+    };
+
+    const seenExisting=new Set();
+    const updated=[];
     for(const c of incoming){
-      const key=normalizePhone(c.phone)||normalizeName(c.name);if(!key)continue;seen.add(key);
-      const existing=byKey.get(key);
-      const customer={name:c.name||existing?.name||"",phone:c.phone||existing?.phone||"",remaining:c.remaining,token:existing?.token||makeToken(),status:c.remaining===0?"zero_balance":"active"};
-      byKey.set(key,customer);updated.push(customer);
+      const existing=findExisting(c);
+      const customer={
+        name:c.name||existing?.name||"",
+        phone:c.phone||existing?.phone||"",
+        remaining:c.remaining,
+        token:existing?.token||makeToken(),
+        status:c.remaining===0?"zero_balance":"active"
+      };
+      if(existing){
+        const idx=allCustomers.indexOf(existing);
+        if(idx>=0) allCustomers[idx]=customer;
+        seenExisting.add(existing.token);
+      }else{
+        allCustomers.push(customer);
+      }
+      updated.push(customer);
     }
-    for(const c of allCustomers){const key=normalizePhone(c.phone)||normalizeName(c.name);if(key&&!seen.has(key))byKey.set(key,{...c,status:"not_in_latest"});}
-    const clients=Array.from(byKey.values());
+
+    // Customers missing from the latest Excel remain permanently stored,
+    // but their old balance is cleared to 0. Their private link is unchanged.
+    for(const c of allCustomers){
+      if(!updated.some(u=>u.token===c.token)){
+        c.remaining=0;
+        c.status="not_in_latest";
+      }
+    }
+    const clients=allCustomers;
     await env.BALANCES.put(DATA_KEY,JSON.stringify(clients));
     await env.BALANCES.put("meta",JSON.stringify({count:clients.length,latestCount:updated.length,updatedAt:new Date().toISOString()}));
     const links=updated.map(c=>({name:c.name,status:c.status,phone:c.phone,whatsapp:(()=>{let p=String(c.phone||"").replace(/\\D/g,"");if(p.startsWith("0"))p="961"+p.slice(1);else if(!p.startsWith("961"))p="961"+p;return p;})(),link:new URL("/c/"+c.token,request.url).toString()}));
