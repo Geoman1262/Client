@@ -1,233 +1,223 @@
 import puppeteer from "@cloudflare/puppeteer";
 
 const SMARTFLOW_LOGIN = "https://celllilo.smartflowsystems.net/HO.php";
-
-const HTML = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cellix — Check Your Balance</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#eef7ff,#f8fbff);color:#18345d}
-.wrap{max-width:520px;margin:0 auto;padding:28px 18px 40px}
-.brand{font-size:42px;font-weight:800;color:#1677ed;margin:10px 0 2px}
-.sub{font-size:19px;color:#47617f;margin-bottom:26px}
-.card{background:#fff;border-radius:24px;padding:24px;box-shadow:0 12px 35px #18345d18}
-h1{font-size:27px;margin:0 0 8px}.hint{color:#64748b;line-height:1.5}
-label{display:block;font-weight:700;margin:18px 0 7px}
-input{width:100%;padding:15px 16px;border:1px solid #d5dfeb;border-radius:13px;font-size:16px;outline:none}
-input:focus{border-color:#1677ed;box-shadow:0 0 0 3px #1677ed18}
-button{width:100%;margin-top:22px;padding:16px;border:0;border-radius:13px;background:#1677ed;color:#fff;font-size:17px;font-weight:700;cursor:pointer}
-button:disabled{opacity:.6}
-#result{display:none;margin-top:20px}
-.total{padding:20px;border-radius:18px;background:#fff0f0;text-align:center}
-.total small{display:block;color:#d33;font-weight:700}.total strong{display:block;color:#d33;font-size:31px;margin-top:5px}
-.item{display:flex;justify-content:space-between;gap:12px;padding:15px 0;border-bottom:1px solid #edf1f5}
-.item:last-child{border-bottom:0}.service{font-weight:700}.date{font-size:13px;color:#64748b;margin-top:4px}.amount{font-weight:800;color:#d33;white-space:nowrap}
-.msg{padding:15px;border-radius:14px;background:#f2f7ff;color:#45627e}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="brand">Cellix</div>
-  <div class="sub">Check Your Balance</div>
-  <div class="card">
-    <h1>Check Your Unpaid Balance</h1>
-    <div class="hint">Enter your phone number and full name to see your latest unpaid amount.</div>
-
-    <label>Phone Number</label>
-    <input id="phone" inputmode="tel" placeholder="03 123 456">
-
-    <label>Full Name</label>
-    <input id="name" autocomplete="name" placeholder="Full Name">
-
-    <button id="check" onclick="checkBalance()">Check My Balance</button>
-    <div id="result"></div>
-  </div>
-</div>
-<script>
-async function checkBalance(){
-  const phone=document.getElementById('phone').value.trim();
-  const name=document.getElementById('name').value.trim();
-  const btn=document.getElementById('check');
-  const out=document.getElementById('result');
-  if(!phone||!name){out.style.display='block';out.innerHTML='<div class="msg">Please enter your phone number and full name.</div>';return}
-  btn.disabled=true;btn.textContent='Checking...';out.style.display='block';
-  out.innerHTML='<div class="msg">Please wait while we check your account.</div>';
-  try{
-    const r=await fetch('/api/check',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({phone,name})});
-    const d=await r.json();
-    if(!r.ok) throw new Error(d.error||'Unable to check balance');
-    if(!d.unpaid?.length){
-      out.innerHTML='<div class="msg">No unpaid amount was found.</div>';
-    }else{
-      const rows=d.unpaid.map(x=>'<div class="item"><div><div class="service">'+escapeHtml(x.service)+'</div><div class="date">'+escapeHtml(x.date)+'</div></div><div class="amount">'+escapeHtml(x.amount)+'</div></div>').join('');
-      out.innerHTML='<div class="total"><small>Total Amount Due</small><strong>'+escapeHtml(d.totalRemaining)+'</strong></div><div class="card" style="margin-top:14px;padding:18px"><b>Unpaid Transactions</b>'+rows+'</div>';
-    }
-  }catch(e){out.innerHTML='<div class="msg">'+escapeHtml(e.message)+'</div>'}
-  finally{btn.disabled=false;btn.textContent='Check My Balance'}
-}
-function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
-</script>
-</body>
-</html>`;
+const MAX_CONTEXTS = 4;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" }
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
   });
 }
 
-async function getLoginInputs(page) {
-  return await page.evaluate(() => [...document.querySelectorAll("input")].map((el, i) => ({
-    index: i,
-    type: el.type,
-    name: el.name,
-    id: el.id,
-    placeholder: el.placeholder,
-    autocomplete: el.autocomplete
-  })));
-}
-
-async function smartflowLogin(page, env) {
-  await page.goto(SMARTFLOW_LOGIN, { waitUntil: "domcontentloaded", timeout: 30000 });
-
-  const inputs = await getLoginInputs(page);
-  const passwordIndex = inputs.findIndex(x => x.type === "password");
-  if (passwordIndex < 0) {
-    throw new Error("SmartFlow login password field was not found.");
-  }
-
-  const userCandidates = inputs.filter((x, i) =>
-    i !== passwordIndex && ["text", "email", ""].includes(x.type)
-  );
-  if (!userCandidates.length) {
-    throw new Error("SmartFlow username field was not found.");
-  }
-
-  const user = userCandidates[0];
-  const pass = inputs[passwordIndex];
-
-  const userSelector = user.id ? `#${CSS.escape(user.id)}` :
-    user.name ? `input[name="${CSS.escape(user.name)}"]` :
-    `input:nth-of-type(${user.index + 1})`;
-
-  const passSelector = pass.id ? `#${CSS.escape(pass.id)}` :
-    pass.name ? `input[name="${CSS.escape(pass.name)}"]` :
-    `input[type="password"]`;
-
-  await page.locator(userSelector).fill(env.SMARTFLOW_USERNAME);
-  await page.locator(passSelector).fill(env.SMARTFLOW_PASSWORD);
-
-  const buttons = await page.evaluate(() => [...document.querySelectorAll("button,input[type=submit]")].map((el,i)=>({
-    i, text:(el.innerText||el.value||"").trim(), type:el.type
-  })));
-
-  const loginButton = buttons.find(b => /login|log in|sign in|submit/i.test(b.text));
-  if (loginButton) {
-    await page.evaluate((i) => {
-      const els=[...document.querySelectorAll("button,input[type=submit]")];
-      els[i]?.click();
-    }, loginButton.i);
-  } else {
-    await page.locator("input[type=password]").press("Enter");
-  }
-
-  await page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 15000 }).catch(() => {});
-  await new Promise(r => setTimeout(r, 1500));
-}
-
-async function diagnostic(env) {
-  if (!env.SMARTFLOW_USERNAME || !env.SMARTFLOW_PASSWORD) {
-    throw new Error("Set SMARTFLOW_USERNAME and SMARTFLOW_PASSWORD as Cloudflare secrets first.");
-  }
-
-  const browser = await puppeteer.launch(env.BROWSER, {
-    guardrails: { allowedDomains: ["celllilo.smartflowsystems.net", "*.smartflowsystems.net"] }
+function html(body, status = 200) {
+  return new Response(body, {
+    status,
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
   });
+}
+
+function esc(v = "") {
+  return String(v).replace(/[&<>\"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;" }[c]));
+}
+
+function tokenOK(request, env) {
+  const expected = env.ADMIN_TEST_TOKEN;
+  if (!expected) return false;
+  const url = new URL(request.url);
+  const supplied = request.headers.get("x-admin-token") || url.searchParams.get("token") || "";
+  return supplied === expected;
+}
+
+async function getSessionIds(endpoint) {
+  const sessions = await puppeteer.sessions(endpoint);
+  return sessions.map((s) => s.sessionId);
+}
+
+async function getReusableBrowser(endpoint) {
+  const sessionIds = await getSessionIds(endpoint);
+  for (const sessionId of sessionIds) {
+    try {
+      const browser = await puppeteer.connect(endpoint, sessionId);
+      const client = await browser.target().createCDPSession();
+      try {
+        const { browserContextIds = [] } = await client.send("Target.getBrowserContexts");
+        if (browserContextIds.length < MAX_CONTEXTS) return { browser, launched: false };
+      } finally {
+        await client.detach();
+      }
+      await browser.disconnect();
+    } catch (_) {
+      // Session may have expired between listing and connecting.
+    }
+  }
+
+  // Only launch when there is no reusable session. Keep it alive so the next
+  // request can connect to the same Browser Run session instead of launching again.
+  const browser = await puppeteer.launch(endpoint, { keep_alive: 600000 });
+  return { browser, launched: true };
+}
+
+async function withBrowser(env, fn) {
+  const { browser, launched } = await getReusableBrowser(env.BROWSER);
+  const context = await browser.createBrowserContext();
+  try {
+    return await fn(browser, context, launched);
+  } finally {
+    await context.close();
+    // IMPORTANT: disconnect, don't close. This keeps the shared browser session alive.
+    await browser.disconnect();
+  }
+}
+
+async function diagnostic(request, env) {
+  if (!tokenOK(request, env)) return json({ error: "Unauthorized" }, 401);
+  if (!env.SMARTFLOW_USERNAME || !env.SMARTFLOW_PASSWORD || !env.BROWSER) {
+    return json({ error: "Required runtime bindings are missing" }, 500);
+  }
 
   try {
-    const page = await browser.newPage();
-    await smartflowLogin(page, env);
+    return await withBrowser(env, async (browser, context, launched) => {
+      const page = await context.newPage();
+      await page.goto(SMARTFLOW_LOGIN, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await new Promise((r) => setTimeout(r, 1200));
 
-    const result = await page.evaluate(() => ({
-      url: location.href,
-      title: document.title,
-      text: document.body?.innerText?.slice(0, 7000) || "",
-      links: [...document.querySelectorAll("a")].slice(0, 80).map(a => ({
-        text:(a.innerText||"").trim(),
-        href:a.href
-      })).filter(x => x.text || x.href),
-      buttons: [...document.querySelectorAll("button,input[type=submit]")].map(x => ({
-        text:(x.innerText||x.value||"").trim()
-      }))
-    }));
+      const info = await page.evaluate(() => {
+        const inputs = [...document.querySelectorAll("input")].map((el) => ({
+          type: el.type,
+          name: el.name,
+          id: el.id,
+          placeholder: el.placeholder,
+          value: el.type === "password" ? "" : el.value,
+        }));
+        const buttons = [...document.querySelectorAll("button, input[type=submit], input[type=button], a")].slice(0, 80).map((el) => ({
+          tag: el.tagName,
+          type: el.type || "",
+          text: (el.innerText || el.value || "").trim(),
+          id: el.id,
+          name: el.name,
+          href: el.href || "",
+        }));
+        return {
+          url: location.href,
+          title: document.title,
+          text: (document.body?.innerText || "").slice(0, 12000),
+          inputs,
+          buttons,
+        };
+      });
 
-    return result;
-  } finally {
-    await browser.close();
+      return json({
+        ok: true,
+        launched,
+        sessionId: browser.sessionId(),
+        ...info,
+      });
+    });
+  } catch (e) {
+    const message = String(e?.message || e);
+    return json({
+      ok: false,
+      error: message,
+      hint: message.includes("429")
+        ? "Browser Run rate limit reached. Reuse is enabled; wait for the current session/rate limit before retrying."
+        : "Browser Run failed while opening SmartFlow.",
+    }, 502);
   }
 }
 
-async function checkClient(env, name, phone) {
-  // V1 intentionally stops after the connection/login test.
-  // Once the diagnostic response identifies the real Report URL and fields,
-  // this function will be completed with the exact SmartFlow search workflow.
-  throw new Error("SmartFlow connection is ready, but the Report page selectors have not been mapped yet.");
+async function smartflowLoginTest(request, env) {
+  if (!tokenOK(request, env)) return json({ error: "Unauthorized" }, 401);
+
+  try {
+    return await withBrowser(env, async (browser, context, launched) => {
+      const page = await context.newPage();
+      await page.goto(SMARTFLOW_LOGIN, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await new Promise((r) => setTimeout(r, 1000));
+
+      const result = await page.evaluate(({ username }) => {
+        const visible = (el) => {
+          const s = getComputedStyle(el);
+          return s.display !== "none" && s.visibility !== "hidden" && el.offsetParent !== null;
+        };
+        const password = [...document.querySelectorAll('input[type="password"]')].find(visible);
+        const textInputs = [...document.querySelectorAll('input')].filter((el) => visible(el) && el !== password);
+        const user = textInputs.find((el) => /user|login|account|name|email|contact/i.test(`${el.name} ${el.id} ${el.placeholder}`)) || textInputs[0];
+        return {
+          usernameSelector: user ? { id: user.id, name: user.name, type: user.type, placeholder: user.placeholder } : null,
+          passwordSelector: password ? { id: password.id, name: password.name, type: password.type, placeholder: password.placeholder } : null,
+          hasUsername: Boolean(user),
+          hasPassword: Boolean(password),
+          username,
+        };
+      }, { username: env.SMARTFLOW_USERNAME });
+
+      if (!result.hasUsername || !result.hasPassword) {
+        return json({ ok: false, stage: "locate-login-fields", launched, sessionId: browser.sessionId(), ...result }, 422);
+      }
+
+      const userSelector = result.usernameSelector.id ? `#${CSS.escape(result.usernameSelector.id)}` : `input[name="${result.usernameSelector.name}"]`;
+      const passSelector = result.passwordSelector.id ? `#${CSS.escape(result.passwordSelector.id)}` : `input[name="${result.passwordSelector.name}"]`;
+      // Puppeteer does not have Playwright fill(); set the fields directly.
+      await page.$eval(userSelector, (el, value) => { el.value = value; el.dispatchEvent(new Event("input", { bubbles: true })); }, env.SMARTFLOW_USERNAME);
+      await page.$eval(passSelector, (el, value) => { el.value = value; el.dispatchEvent(new Event("input", { bubbles: true })); }, env.SMARTFLOW_PASSWORD);
+
+      const submit = await page.$('button[type="submit"], input[type="submit"], button, input[type="button"]');
+      if (!submit) return json({ ok: false, stage: "locate-login-button", launched, sessionId: browser.sessionId() }, 422);
+      await submit.click();
+      await page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 15000 }).catch(() => {});
+      await new Promise((r) => setTimeout(r, 1200));
+
+      const after = await page.evaluate(() => ({
+        url: location.href,
+        title: document.title,
+        text: (document.body?.innerText || "").slice(0, 12000),
+        links: [...document.querySelectorAll("a")].slice(0, 100).map((a) => ({ text: (a.innerText || "").trim(), href: a.href })),
+      }));
+
+      return json({ ok: true, stage: "after-login", launched, sessionId: browser.sessionId(), ...after });
+    });
+  } catch (e) {
+    return json({ ok: false, error: String(e?.message || e) }, 502);
+  }
 }
+
+const APP = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cellix – Check Your Balance</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f7fb;font-family:Arial,sans-serif;color:#172033}.wrap{max-width:520px;margin:0 auto;padding:42px 18px}.brand{font-size:42px;font-weight:800;color:#1677ed;text-align:center}.sub{text-align:center;color:#657086;margin:5px 0 28px}.card{background:#fff;border-radius:24px;padding:24px;box-shadow:0 10px 35px rgba(30,60,100,.08)}h1{font-size:27px;margin:0 0 8px}.hint{color:#68758a;margin-bottom:22px}label{display:block;font-weight:700;margin:14px 0 7px}input{width:100%;padding:15px 16px;border:1px solid #d8dfeb;border-radius:13px;font-size:16px;outline:none}button{width:100%;padding:15px;border:0;border-radius:13px;background:#1677ed;color:#fff;font-size:16px;font-weight:800;margin-top:18px}.result{margin-top:20px;padding:18px;border-radius:16px;background:#f5f8fc;white-space:pre-wrap}.amount{font-size:34px;font-weight:900;color:#1677ed;margin-top:6px}.small{font-size:12px;color:#7a8495;margin-top:18px;text-align:center}
+</style></head><body><div class="wrap"><div class="brand">Cellix</div><div class="sub">SmartFlow Balance Check</div><div class="card"><h1>Check Your Balance</h1><div class="hint">Enter your phone number and full name.</div><label>Phone</label><input id="phone" type="tel" autocomplete="tel"><label>Full name</label><input id="name" autocomplete="name"><button id="check">Check Balance</button><div id="result" class="result" style="display:none"></div></div><div class="small">Your information is checked securely.</div></div>
+<script>
+const result=document.getElementById('result');
+document.getElementById('check').onclick=async()=>{const phone=document.getElementById('phone').value.trim();const name=document.getElementById('name').value.trim();if(!phone||!name){result.style.display='block';result.textContent='Please enter your phone and full name.';return}result.style.display='block';result.textContent='Checking…';try{const r=await fetch('/api/check',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({phone,name})});const d=await r.json();if(!d.ok){result.textContent=d.message||'Unable to check right now.';return}result.innerHTML=d.hasUnpaid?'<div>Amount owed</div><div class="amount">'+String(d.amount).replace(/[<>]/g,'')+'</div>':'No unpaid balance found.'}catch(e){result.textContent='Unable to connect. Please try again.'}};
+</script></body></html>`;
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (request.method === "GET" && url.pathname === "/") {
-      return new Response(HTML, { headers: { "content-type": "text/html; charset=utf-8" } });
-    }
-
-    if (request.method === "GET" && url.pathname === "/api/health") {
-      return json({ ok: true, project: "cellix-smartflow-balance", version: "1.0.0" });
-    }
-
-    if (request.method === "GET" && url.pathname === "/api/config-check") {
-      // Safe diagnostic: exposes only whether the three bindings exist.
-      // It never returns their values.
+    if (url.pathname === "/api/config-check") {
       return json({
         smartflowUsername: !!env.SMARTFLOW_USERNAME,
         smartflowPassword: !!env.SMARTFLOW_PASSWORD,
         adminTestToken: !!env.ADMIN_TEST_TOKEN,
-        browserBinding: !!env.BROWSER
+        browserBinding: !!env.BROWSER,
       });
     }
 
-    if (request.method === "GET" && url.pathname === "/admin/diagnostic") {
-      // For this first mobile-friendly test, allow the admin token either
-      // as a header or as a query parameter. The token is never logged.
-      const suppliedToken = request.headers.get("x-admin-token") || url.searchParams.get("token");
-      if (!env.ADMIN_TEST_TOKEN || suppliedToken !== env.ADMIN_TEST_TOKEN) {
-        return json({ error: "Unauthorized" }, 401);
-      }
-      try {
-        return json(await diagnostic(env));
-      } catch (e) {
-        return json({ error: e?.message || String(e) }, 500);
-      }
+    if (url.pathname === "/admin/diagnostic") return diagnostic(request, env);
+    if (url.pathname === "/admin/smartflow-login-test") return smartflowLoginTest(request, env);
+
+    if (url.pathname === "/api/check" && request.method === "POST") {
+      // The public lookup is intentionally not enabled yet until SmartFlow's
+      // report selectors are confirmed by the diagnostic/login test.
+      return json({ ok: false, message: "SmartFlow report mapping is not enabled yet." }, 501);
     }
 
-    if (request.method === "POST" && url.pathname === "/api/check") {
-      try {
-        const body = await request.json();
-        const name = String(body?.name || "").trim();
-        const phone = String(body?.phone || "").trim();
-        if (!name || !phone) return json({ error: "Name and phone are required." }, 400);
-        const data = await checkClient(env, name, phone);
-        return json(data);
-      } catch (e) {
-        return json({ error: e?.message || String(e) }, 500);
-      }
-    }
-
-    return new Response("Not found", { status: 404 });
-  }
+    if (url.pathname.startsWith("/api/")) return json({ error: "Not found" }, 404);
+    return html(APP);
+  },
 };
