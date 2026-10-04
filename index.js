@@ -1,3 +1,4 @@
+// CELLIX DASHBOARD READY - root opens admin dashboard
 const DATA_KEY = "clients";
 
 const PAGE = `<!doctype html>
@@ -284,6 +285,6 @@ export default {
    return json({ok:true,count:updated.length,totalCustomers:allCustomers.length});
   }
   if(url.pathname==="/api/health")return json({ok:true,storage:!!env.BALANCES});
-  return new Response(PAGE,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
+  return Response.redirect(new URL("/admin/upload",request.url).toString(),302);
  }
 };
