@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cellix-smartflow-balance",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-02",
+  "browser": {
+    "binding": "BROWSER"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
