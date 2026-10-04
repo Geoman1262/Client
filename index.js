@@ -184,7 +184,7 @@ export default {
       const customer={name:c.name||existing?.name||"",phone:c.phone||existing?.phone||"",remaining:c.remaining,token:existing?.token||makeToken(),status:c.remaining===0?"zero_balance":"active"};
       byKey.set(key,customer);updated.push(customer);
     }
-    for(const c of allCustomers){const key=normalizePhone(c.phone)||normalizeName(c.name);if(key&&!seen.has(key))byKey.set(key,{...c,status:"not_in_latest"});}
+    for(const c of allCustomers){const key=normalizePhone(c.phone)||normalizeName(c.name);if(key&&!seen.has(key))byKey.set(key,{...c,remaining:0,status:"not_in_latest"});}
     const clients=Array.from(byKey.values());
     await env.BALANCES.put(DATA_KEY,JSON.stringify(clients));
     await env.BALANCES.put("meta",JSON.stringify({count:clients.length,latestCount:updated.length,updatedAt:new Date().toISOString()}));
