@@ -137,6 +137,21 @@ export default {
    return new Response(ADMIN,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
   }
 
+  if(url.pathname.startsWith("/c/") && url.pathname.length>3){
+   return new Response(PRIVATE_PAGE,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
+  }
+
+  if(url.pathname==="/api/private"){
+   if(!env.BALANCES)return json({ok:false,message:"Balance storage is not configured."},500);
+   const token=String(url.searchParams.get("token")||"").trim();
+   const raw=await env.BALANCES.get(DATA_KEY);
+   if(!token||!raw)return json({ok:false,message:"Invalid private link."},404);
+   let clients=[];try{clients=JSON.parse(raw)}catch{return json({ok:false,message:"Stored data is invalid."},500);}
+   const customer=clients.find(c=>String(c.token||"")===token);
+   if(!customer)return json({ok:false,message:"This private link is invalid or no longer active."},404);
+   return json({ok:true,customer:{name:customer.name,remaining:Number(customer.remaining)||0,status:customer.status||"active"}});
+  }
+
   if(url.pathname==="/api/check"){
    if(!env.BALANCES) return json({ok:false,message:"Balance storage is not configured."},500);
    const phone=normalizePhone(url.searchParams.get("phone"));
