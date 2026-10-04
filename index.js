@@ -74,17 +74,18 @@ document.getElementById("check").onclick=async()=>{
 </script>
 </body></html>`;
 
+const PRIVATE_PAGE = `<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Cellix — My Balance</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 40px rgba(20,40,80,.10)}.logo{font-size:40px;font-weight:800;color:#1677ff}.sub{color:#697386;margin:7px 0 25px}.name{font-size:18px;font-weight:800}.amount{font-size:34px;font-weight:900;margin-top:10px}.label{font-size:13px;color:#687386;margin-top:22px}.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:28px}.err{background:#fff2f2;border:1px solid #f0cccc;color:#b42318;border-radius:14px;padding:16px;margin-top:18px}</style></head><body><main class="card"><div class="logo">Cellix</div><div class="sub">Your outstanding balance</div><div id="content">Checking your account...</div><div class="small">Cellix</div><script>(async()=>{const c=document.getElementById("content");try{const t=location.pathname.split("/")[2]||"";const r=await fetch("/api/private?token="+encodeURIComponent(t));const d=await r.json();if(d.ok&&d.customer){c.innerHTML='<div class="name"></div><div class="label">Remaining balance</div><div class="amount"></div>';c.querySelector(".name").textContent=d.customer.name;c.querySelector(".amount").textContent=new Intl.NumberFormat("en-US").format(Number(d.customer.remaining)||0)+" LBP"}else c.innerHTML='<div class="err">This private link is invalid or no longer active.</div>'}catch(e){c.innerHTML='<div class="err">Unable to load your balance. Please try again.</div>}})();</script></main></body></html>`;
 const ADMIN = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cellix Admin — Upload Excel</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
-body{font-family:Arial;background:#f4f7fb;margin:0;padding:24px;color:#172033}.box{max-width:520px;margin:30px auto;background:#fff;padding:26px;border-radius:22px;box-shadow:0 10px 35px #0001}h1{color:#1677ff}input,button{width:100%;height:50px;margin:8px 0;border-radius:10px;border:1px solid #ccd4df;padding:0 12px;box-sizing:border-box}button{background:#1677ff;color:#fff;font-weight:700;border:0}#msg{margin-top:14px;font-size:14px;white-space:pre-wrap}</style>
+body{font-family:Arial;background:#f4f7fb;margin:0;padding:24px;color:#172033}.box{max-width:520px;margin:30px auto;background:#fff;padding:26px;border-radius:22px;box-shadow:0 10px 35px #0001}h1{color:#1677ff}input,button{width:100%;height:50px;margin:8px 0;border-radius:10px;border:1px solid #ccd4df;padding:0 12px;box-sizing:border-box}button{background:#1677ff;color:#fff;font-weight:700;border:0}#msg{margin-top:14px;font-size:14px;white-space:pre-wrap} #links{margin-top:18px;font-size:13px}#links .row{padding:12px 0;border-top:1px solid #e6eaf0}#links a{color:#1677ff;word-break:break-all}</style>
 </head><body><div class="box"><h1>Cellix</h1><h2>Upload Customer Balances</h2>
 <p>Upload the new Excel file. It will replace the previous customer data.</p>
 <input id="token" type="password" placeholder="Admin token">
 <input id="file" type="file" accept=".xlsx,.xls,.csv">
-<button id="upload">Upload & Replace Data</button><div id="msg"></div></div>
+<button id="upload">Upload & Replace Data</button><div id="msg"></div><div id="links"></div></div>
 <script>
 document.getElementById("upload").onclick=async()=>{
  const token=document.getElementById("token").value;
@@ -117,7 +118,7 @@ document.getElementById("upload").onclick=async()=>{
   msg.textContent="Uploading "+clients.length+" customers...";
   const r=await fetch("/api/upload",{method:"POST",headers:{"content-type":"application/json","x-admin-token":token},body:JSON.stringify({clients})});
   const d=await r.json();
-  msg.textContent=d.ok?"Success. "+d.count+" customers are now active.":"Error: "+(d.error||"Upload failed.");
+  if(d.ok){msg.textContent="Success. "+d.count+" customers are now active.";const links=document.getElementById("links");links.innerHTML="<h3>Private customer links</h3>"+(d.links||[]).map(x=>'<div class="row"><b>'+x.name+'</b><br><a href="'+x.link+'" target="_blank">'+x.link+'</a></div>').join("");}else msg.textContent="Error: "+(d.error||"Upload failed.");
  }catch(e){msg.textContent="Error: "+e.message;}
 };
 </script></body></html>`;
@@ -136,6 +137,16 @@ export default {
    return new Response(ADMIN,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
   }
 
+   if(url.pathname.startsWith("/c/") && url.pathname.length>3){return new Response(PRIVATE_PAGE,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});}
+   if(url.pathname==="/api/private"){
+    if(!env.BALANCES)return json({ok:false,message:"Balance storage is not configured."},500);
+    const token=String(url.searchParams.get("token")||"");
+    const raw=await env.BALANCES.get(DATA_KEY);
+    if(!token||!raw)return json({ok:false,message:"Invalid private link."},404);
+    let clients=[];try{clients=JSON.parse(raw)}catch{return json({ok:false,message:"Stored data is invalid."},500);}
+    const customer=clients.find(c=>c.token===token);
+    return customer?json({ok:true,customer:{name:customer.name,remaining:customer.remaining}}):json({ok:false,message:"Invalid private link."},404);
+   }
   if(url.pathname==="/api/check"){
    if(!env.BALANCES) return json({ok:false,message:"Balance storage is not configured."},500);
    const phone=normalizePhone(url.searchParams.get("phone"));
@@ -154,10 +165,16 @@ export default {
    if(!env.ADMIN_TEST_TOKEN || token!==env.ADMIN_TEST_TOKEN) return json({ok:false,error:"Unauthorized"},401);
    let body; try{body=await request.json()}catch{return json({ok:false,error:"Invalid JSON"},400);}
    if(!Array.isArray(body.clients)||!body.clients.length) return json({ok:false,error:"No customer data received."},400);
-   const clients=body.clients.map(c=>({name:String(c.name??"").trim(),phone:String(c.phone??"").trim(),remaining:Number(c.remaining)||0})).filter(c=>c.name||c.phone);
+   const incoming=body.clients.map(c=>({name:String(c.name??"").trim(),phone:String(c.phone??"").trim(),remaining:Number(c.remaining)||0})).filter(c=>c.name||c.phone);
+   let tokenMap={};const old=await env.BALANCES.get("token_map");if(old){try{tokenMap=JSON.parse(old)}catch{}}
+   const used=new Set(Object.values(tokenMap));
+   const makeToken=()=>{let t="";do{const b=new Uint8Array(12);crypto.getRandomValues(b);t=Array.from(b,x=>x.toString(16).padStart(2,"0")).join("")}while(used.has(t));used.add(t);return t};
+   const clients=incoming.map(c=>{const key=normalizePhone(c.phone)||normalizeName(c.name);if(!tokenMap[key])tokenMap[key]=makeToken();return {...c,token:tokenMap[key]}});
    await env.BALANCES.put(DATA_KEY,JSON.stringify(clients));
+   await env.BALANCES.put("token_map",JSON.stringify(tokenMap));
    await env.BALANCES.put("meta",JSON.stringify({count:clients.length,updatedAt:new Date().toISOString()}));
-   return json({ok:true,count:clients.length});
+   const links=clients.map(c=>({name:c.name,link:new URL("/c/"+c.token,request.url).toString()}));
+   return json({ok:true,count:clients.length,links});
   }
 
   if(url.pathname==="/api/health"){
