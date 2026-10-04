@@ -41,3 +41,7 @@ The token is only for this temporary diagnostic test. Do not post the URL or tok
 
 
 VERSION: CELLIX-SMARTFLOW-V2-FLAT-2026-10-04
+
+
+V3 troubleshooting:
+Open `/api/config-check` after deployment. It safely reports only whether the required bindings exist; it never reveals their values.

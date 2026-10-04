@@ -190,6 +190,17 @@ export default {
       return json({ ok: true, project: "cellix-smartflow-balance", version: "1.0.0" });
     }
 
+    if (request.method === "GET" && url.pathname === "/api/config-check") {
+      // Safe diagnostic: exposes only whether the three bindings exist.
+      // It never returns their values.
+      return json({
+        smartflowUsername: !!env.SMARTFLOW_USERNAME,
+        smartflowPassword: !!env.SMARTFLOW_PASSWORD,
+        adminTestToken: !!env.ADMIN_TEST_TOKEN,
+        browserBinding: !!env.BROWSER
+      });
+    }
+
     if (request.method === "GET" && url.pathname === "/admin/diagnostic") {
       // For this first mobile-friendly test, allow the admin token either
       // as a header or as a query parameter. The token is never logged.
