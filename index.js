@@ -247,6 +247,7 @@ async function processUploadedClients(request,env,incoming){
 export default {
  async fetch(request,env){
   const url=new URL(request.url);
+  if(url.pathname==="/"||url.pathname==="/admin")return Response.redirect(new URL("/admin/upload",request.url).toString(),302);
   if(url.pathname==="/admin/upload")return new Response(ADMIN,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
   if(url.pathname.startsWith("/c/")&&url.pathname.length>3)return new Response(PRIVATE_PAGE,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
   if(url.pathname==="/api/private"){
