@@ -1,216 +1,220 @@
 const DATA_KEY = "clients";
+const META_KEY = "meta";
 
-const PAGE = `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Cellix</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:30px;box-shadow:0 12px 40px rgba(20,40,80,.10);text-align:center}.logo{font-size:40px;font-weight:800;color:#1677ff;letter-spacing:-1.5px}.title{font-size:20px;font-weight:800;margin-top:20px}.text{color:#697386;margin-top:10px;line-height:1.5}.small{color:#9aa3b2;font-size:12px;margin-top:25px}</style></head><body><main class="card"><div class="logo">Cellix</div><div class="title">Private balance link required</div><div class="text">Please open the private Cellix link sent to you by Cellix to view your current outstanding balance.</div><div class="small">For help, contact Cellix.</div></main></body></html>`;
-
-const PRIVATE_PAGE = `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Cellix — My Balance</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 40px rgba(20,40,80,.10)}.logo{font-size:40px;font-weight:800;color:#1677ff}.sub{color:#697386;margin:7px 0 25px}.name{font-size:18px;font-weight:800}.checked{font-size:13px;color:#687386;margin-top:7px}.label{font-size:13px;color:#687386;margin-top:22px}.amount{font-size:34px;font-weight:900;margin-top:8px}.status{display:inline-block;margin-top:14px;padding:8px 12px;border-radius:999px;font-size:13px;font-weight:800}.paid{background:#eaf8ef;color:#167a3b}.due{background:#fff4e5;color:#9a5b00}.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:28px}.err{background:#fff2f2;border:1px solid #f0cccc;color:#b42318;border-radius:14px;padding:16px;margin-top:18px}</style></head><body><main class="card"><div class="logo">Cellix</div><div class="sub">Your outstanding balance</div><div id="content">Checking your account...</div><div class="small">Cellix</div><script>
-(async()=>{
- const c=document.getElementById("content");
- const checkedAt=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Beirut",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(new Date());
- try{
-  const token=decodeURIComponent(location.pathname.split("/")[2]||"").trim();
-  if(!token)throw new Error("Invalid private link.");
-  const r=await fetch("/api/private?token="+encodeURIComponent(token),{cache:"no-store"});
-  const d=await r.json();
-  if(d.ok&&d.customer){
-   const amount=Number(d.customer.remaining)||0;
-   const paid=amount===0;
-   c.innerHTML='<div class="name"></div><div class="checked">Checked at: '+checkedAt+' • Lebanon Time (UTC+3)</div><div class="label">Remaining balance</div><div class="amount"></div><div class="status '+(paid?"paid":"due")+'"></div>';
-   c.querySelector(".name").textContent=d.customer.name;
-   c.querySelector(".amount").textContent=new Intl.NumberFormat("en-US").format(amount)+" LBP";
-   c.querySelector(".status").textContent=paid?"✓ Account Paid":"Outstanding Balance";
-  }else{
-   c.innerHTML='<div class="err"></div>';
-   c.querySelector(".err").textContent=d.message||"This private link is invalid or no longer active.";
-  }
- }catch(e){
-  c.innerHTML='<div class="err"></div>';
-  c.querySelector(".err").textContent=e.message||"Unable to load your balance. Please try again.";
- }
-})();
-</script></main></body></html>`;
 const ADMIN = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cellix Admin — Dashboard</title>
-
+<title>Cellix — Admin</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033}.wrap{max-width:1250px;margin:0 auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:20px}.logo{font-size:38px;font-weight:900;color:#1677ff}.sub{color:#697386;margin-top:5px}.time{background:#fff;border:1px solid #dfe6ef;border-radius:16px;padding:12px 16px;text-align:right;font-size:13px;color:#697386;box-shadow:0 6px 20px #17325d0d}.time b{display:block;color:#172033;font-size:14px;margin-top:3px}.panel{background:#fff;border-radius:20px;padding:20px;box-shadow:0 10px 30px #17325d0d;margin-bottom:20px}.uploadgrid{display:grid;grid-template-columns:1fr 230px;gap:12px}.filebox{border:2px dashed #cbd8e8;border-radius:16px;padding:16px}.filebox input{width:100%;margin-top:10px}.controls{display:flex;gap:10px;align-items:end}.controls input{height:48px;border:1px solid #ccd6e2;border-radius:11px;padding:0 12px;font-size:15px;width:100%}button{border:0;border-radius:11px;height:48px;padding:0 18px;font-weight:800;cursor:pointer;background:#1677ff;color:#fff;white-space:nowrap}button:disabled{opacity:.55}.btn2{background:#edf4ff;color:#1263d6}.msg{margin-top:12px;font-size:14px;white-space:pre-wrap;line-height:1.5}.ok{color:#16803c}.bad{color:#c62828}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:#fff;border-radius:16px;padding:18px;border:1px solid #e1e8f1}.card .k{font-size:13px;color:#697386}.card .v{font-size:25px;font-weight:900;margin-top:8px}.blue{color:#1677ff}.green{color:#16803c}.red{color:#c62828}.muted{color:#697386}.searchrow{display:flex;gap:10px;margin:18px 0 10px}.searchrow input,.searchrow select{height:44px;border:1px solid #ccd6e2;border-radius:10px;padding:0 12px;font-size:14px}.searchrow input{flex:1}.searchrow select{min-width:190px;background:#fff}.tablewrap{overflow:auto;border:1px solid #e2e8f0;border-radius:14px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:11px 12px;border-bottom:1px solid #edf0f4;text-align:left;font-size:13px}th{background:#f8fafc;color:#526075;position:sticky;top:0}td.num{text-align:right}.pill{display:inline-block;padding:6px 9px;border-radius:999px;font-size:11px;font-weight:800}.pill.paid{background:#eaf8ef;color:#167a3b}.pill.due{background:#fff0f0;color:#b42318}.pill.missing{background:#eef2f6;color:#667085}.mini{display:inline-block;text-decoration:none;border-radius:8px;padding:7px 9px;background:#1677ff;color:#fff;margin-right:5px}.wa{background:#18a957}.history{margin-top:20px}.history td.plus{color:#c62828;font-weight:800}.history td.minus{color:#16803c;font-weight:800}.empty{text-align:center;color:#7a8494;padding:25px}.hint{font-size:12px;color:#697386;margin-top:8px}.hidden{display:none}@media(max-width:800px){.wrap{padding:14px}.top{display:block}.time{margin-top:12px;text-align:left}.uploadgrid{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,1fr)}.controls{display:block}.controls button{width:100%;margin-top:8px}.searchrow{display:block}.searchrow input,.searchrow select{width:100%;margin-bottom:8px}}
+*{box-sizing:border-box}body{margin:0;background:#f4f7fb;font-family:Arial,sans-serif;color:#172033;padding:18px}
+.wrap{max-width:1100px;margin:auto}.card{background:#fff;border-radius:20px;padding:22px;margin-bottom:18px;box-shadow:0 10px 30px #0000000d}
+h1{margin:0;color:#1677ff}.muted{color:#687386}.row{display:flex;gap:10px;flex-wrap:wrap}
+input,button{height:48px;border-radius:11px;border:1px solid #d6dde8;padding:0 13px;font-size:15px}
+input[type=password]{flex:1;min-width:220px}input[type=file]{flex:2;min-width:240px}
+button{background:#1677ff;color:white;border:0;font-weight:800;cursor:pointer;padding:0 20px}
+button:disabled{opacity:.6}.msg{margin-top:12px;white-space:pre-wrap}
+.ok{color:#16803c}.bad{color:#c62828}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.stat{background:#f7f9fc;border-radius:15px;padding:16px}.num{font-size:25px;font-weight:900;margin-top:5px}
+.search{width:100%;margin:8px 0}.table{overflow:auto}table{width:100%;border-collapse:collapse;min-width:760px}th,td{text-align:left;padding:12px;border-bottom:1px solid #edf0f4}th{font-size:12px;color:#687386}
+a{color:#1677ff;text-decoration:none;font-weight:700}.wa{background:#159447;padding:9px 12px;border-radius:9px;color:white;display:inline-block}
+.badge{padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}.paid{background:#e9f8ef;color:#16803c}.out{background:#fff4df;color:#9a6500}.zero{background:#eef1f5;color:#667085}
+@media(max-width:650px){.stats{grid-template-columns:1fr}.card{padding:16px}}
 </style></head><body><div class="wrap">
-<div class="top"><div><div class="logo">Cellix</div><h1 style="margin:5px 0 0">Customer Balance Dashboard</h1><div class="sub">Upload the latest Excel and manage private customer links.</div></div><div class="time">Last updated<b id="lastUpdated">—</b></div></div>
-<div class="panel"><h2 style="margin-top:0">Update Customer Balances</h2><form id="uploadForm" action="/api/upload-file" method="post" enctype="multipart/form-data" target="uploadResult"><div class="uploadgrid"><div class="filebox"><b>Choose Excel File</b><input id="file" name="file" type="file" accept=".xlsx,.xls,.csv" required><div id="fileInfo" class="hint">No file selected.</div></div><div class="controls"><input id="token" name="adminToken" type="password" placeholder="Admin token" autocomplete="off" required><button id="upload" type="submit">Upload & Update</button></div></div></form><iframe name="uploadResult" id="uploadResult" title="Upload result" style="width:100%;height:70px;border:0;margin-top:10px" srcdoc=""></iframe><div id="uploadMsg" class="msg ok"></div><div class="hint" style="margin-top:4px">Upload uses the browser's native file upload and does not depend on the Excel reader in this page.</div></div>
-<div id="dashboard" class="hidden">
-<div class="cards"><div class="card"><div class="k">Total Customers</div><div class="v blue" id="totalCustomers">0</div></div><div class="card"><div class="k">Total Outstanding</div><div class="v red" id="totalOutstanding">0 LBP</div></div><div class="card"><div class="k">Paid</div><div class="v green" id="paidCount">0</div></div><div class="card"><div class="k">Outstanding</div><div class="v red" id="outstandingCount">0</div></div></div>
-<div class="panel" style="margin-top:12px"><div style="font-weight:800">Customers not in latest Excel: <span id="missingCount">0</span></div></div>
-<div class="panel"><h2 style="margin-top:0">Customers</h2><div class="searchrow"><input id="search" placeholder="Search by name or phone..."><select id="filter"><option value="all">All Customers</option><option value="outstanding">Outstanding Only</option><option value="paid">Paid Only</option><option value="missing">Not in Latest Excel</option></select></div><div class="tablewrap"><table><thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>Balance</th><th>Status</th><th>Private Link</th><th>WhatsApp</th></tr></thead><tbody id="customersBody"></tbody></table></div></div>
-<div class="panel history"><h2 style="margin-top:0">Recent Changes</h2><div class="hint" style="margin-bottom:10px">Changes from the latest uploads are kept in the system.</div><div class="tablewrap"><table><thead><tr><th>Customer</th><th>Previous</th><th>New</th><th>Difference</th><th>Change</th><th>Time</th></tr></thead><tbody id="historyBody"></tbody></table></div></div>
+<div class="card"><h1>Cellix</h1><h2>Customer Balance Admin</h2><p class="muted">Upload the latest Excel report. Customer private links are preserved.</p>
+<div class="row"><input id="token" type="password" placeholder="Admin token"><input id="file" type="file" accept=".xlsx,.xls,.csv"><button id="upload">Upload & Update</button></div>
+<div id="msg" class="msg"></div></div>
+
+<div class="card"><div class="stats">
+<div class="stat">Customers<div id="count" class="num">—</div></div>
+<div class="stat">Outstanding<div id="outstanding" class="num">—</div></div>
+<div class="stat">Paid<div id="paid" class="num">—</div></div>
 </div></div>
-<script>window.sheetLoaded=true;</script>
+
+<div class="card"><h2>Private Customer Links</h2>
+<input id="search" class="search" placeholder="Search by name or phone">
+<div class="table"><table><thead><tr><th>Name</th><th>Phone</th><th>Balance</th><th>Status</th><th>Private Link</th><th>WhatsApp</th></tr></thead>
+<tbody id="list"></tbody></table></div></div>
+</div>
 <script>
-const $=id=>document.getElementById(id);let state={clients:[],history:[]};
-async function unzipEntries(buf){
- const a=new Uint8Array(buf), dv=new DataView(buf); const u16=(p)=>dv.getUint16(p,true), u32=(p)=>dv.getUint32(p,true);
- let eocd=-1; for(let p=a.length-22;p>=Math.max(0,a.length-65557);p--){if(u32(p)===0x06054b50){eocd=p;break}}
- if(eocd<0)throw new Error("Invalid XLSX file (ZIP header not found).");
- const count=u16(eocd+10), cdSize=u32(eocd+12), cdOff=u32(eocd+16), out={}; let p=cdOff;
- for(let i=0;i<count;i++){
-  if(u32(p)!==0x02014b50)throw new Error("Invalid XLSX central directory.");
-  const method=u16(p+10), csize=u32(p+20), nlen=u16(p+28), xlen=u16(p+30), clen=u16(p+32), loff=u32(p+42);
-  const name=new TextDecoder().decode(a.slice(p+46,p+46+nlen));
-  const lp=loff, ln=u16(lp+26), lx=u16(lp+28), data=a.slice(lp+30+ln+lx,lp+30+ln+lx+csize);
-  out[name]=method===0?data:method===8?await inflateRaw(data):null;
-  if(!out[name])throw new Error("Unsupported XLSX compression for "+name);
-  p+=46+nlen+xlen+clen;
- }
- return out;
-}
-async function inflateRaw(data){
- if(typeof DecompressionStream==="undefined")throw new Error("This browser cannot read compressed Excel files.");
- const ds=new DecompressionStream("deflate-raw");
- return new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(ds)).arrayBuffer());
-}
-function xmlText(bytes){return new TextDecoder("utf-8").decode(bytes)}
-function firstText(el){return el?el.textContent||"":""}
-async function readXlsx(file){
- if(/\.csv$/i.test(file.name)){
-  const text=await file.text(); return text.split(/\r?\n/).filter(x=>x.trim()!=="").map(line=>{let out=[],cur="",q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;continue}if(ch==='"'){q=!q;continue}if(ch===','&&!q){out.push(cur);cur=""}else cur+=ch}out.push(cur);return out});
- }
- const entries=await unzipEntries(await file.arrayBuffer());
- const wb=new DOMParser().parseFromString(xmlText(entries["xl/workbook.xml"]),"application/xml");
- const rels=new DOMParser().parseFromString(xmlText(entries["xl/_rels/workbook.xml.rels"]),"application/xml");
- const sheet=wb.getElementsByTagNameNS("*","sheet")[0]; if(!sheet)throw new Error("The Excel file has no sheets.");
- const rid=sheet.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id")||sheet.getAttribute("r:id");
- let target=""; for(const r of rels.getElementsByTagNameNS("*","Relationship")){if(r.getAttribute("Id")===rid){target=r.getAttribute("Target")||"";break}}
- if(!target)target="worksheets/sheet1.xml"; target=target.replace(/^\//,""); if(!target.startsWith("xl/"))target="xl/"+target.replace(/^xl\//,"");
- const shared=[]; if(entries["xl/sharedStrings.xml"]){const sd=new DOMParser().parseFromString(xmlText(entries["xl/sharedStrings.xml"]),"application/xml");for(const si of sd.getElementsByTagNameNS("*","si"))shared.push(firstText(si));}
- const doc=new DOMParser().parseFromString(xmlText(entries[target]),"application/xml");
- const rows=[]; for(const row of doc.getElementsByTagNameNS("*","row")){const arr=[];for(const c of row.getElementsByTagNameNS("*","c")){const ref=c.getAttribute("r")||"A1", m=ref.match(/^([A-Z]+)(\d+)$/i);if(!m)continue;let col=0;for(const ch of m[1].toUpperCase())col=col*26+ch.charCodeAt(0)-64;col--;const type=c.getAttribute("t")||"";let val="";if(type==="inlineStr"){const is=c.getElementsByTagNameNS("*","is")[0];val=firstText(is)}else{const v=c.getElementsByTagNameNS("*","v")[0];val=firstText(v);if(type==="s")val=shared[Number(val)]??"";else if(type==="b")val=val==="1"?"TRUE":"FALSE"}arr[col]=val;}rows[Number(row.getAttribute("r")||rows.length+1)-1]=arr;}return rows;
-}
+const $=id=>document.getElementById(id);
+const money=n=>new Intl.NumberFormat("en-US").format(Number(n)||0)+" LBP";
+function token(){return $("token").value.trim();}
+function show(s,ok=false){$("msg").textContent=s;$("msg").className="msg "+(ok?"ok":"bad");}
+function waPhone(v){let d=String(v??"").replace(/\\D/g,"");if(d.startsWith("0"))d="961"+d.slice(1);else if(!d.startsWith("961"))d="961"+d;return d;}
+function waLink(c){
+ const base=location.origin+"/c/"+encodeURIComponent(c.token);
+ const text=`إدارة Cellix تشكركم على ثقتكم بنا،
 
-function money(n){return new Intl.NumberFormat("en-US").format(Number(n)||0)+" LBP"}
-function esc(v){return String(v??"").replace(/[&<>\"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]))}
-function adminToken(){return $("token").value.trim()}
-function show(text,cls=""){ $("msg").className="msg "+cls;$("msg").textContent=text; }
-function localTime(v){if(!v)return "—";return new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Beirut",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(new Date(v));}
-$("file").addEventListener("change",()=>{const f=$("file").files[0];$("fileInfo").textContent=f?"Selected: "+f.name+" ("+Math.round(f.size/1024)+" KB)":"No file selected.";});
-async function api(path,opts={}){opts.headers=Object.assign({},opts.headers||{}, {"x-admin-token":adminToken()});const r=await fetch(path,opts);let d;try{d=await r.json()}catch{throw new Error("Server returned an invalid response (HTTP "+r.status+")")};if(!r.ok||d.ok===false)throw new Error(d.error||d.message||("HTTP "+r.status));return d;}
-function render(){const q=$("search").value.trim().toLowerCase();const f=$("filter").value;const all=state.clients;const filtered=all.filter(c=>{const text=(String(c.name||"")+" "+String(c.phone||"")).toLowerCase();if(q&&!text.includes(q))return false;if(f==="outstanding"&&(Number(c.remaining)||0)<=0)return false;if(f==="paid"&&(Number(c.remaining)||0)!==0)return false;if(f==="missing"&&c.status!=="not_in_latest")return false;return true});
-$("totalCustomers").textContent=all.length;$("totalOutstanding").textContent=money(all.reduce((s,c)=>s+(Number(c.remaining)||0),0));$("paidCount").textContent=all.filter(c=>(Number(c.remaining)||0)===0).length;$("outstandingCount").textContent=all.filter(c=>(Number(c.remaining)||0)>0).length;$("missingCount").textContent=all.filter(c=>c.status==="not_in_latest").length;
-$("customersBody").innerHTML=filtered.map((c,i)=>{const amt=Number(c.remaining)||0;const paid=amt===0;const missing=c.status==="not_in_latest";let p=String(c.phone||"").replace(/\D/g,"");if(p.startsWith("0"))p="961"+p.slice(1);else if(p&&!p.startsWith("961"))p="961"+p;const wa="https://wa.me/"+p+"?text="+encodeURIComponent("إدارة Cellix تشكركم على ثقتكم بنا،\n\nونشارككم رابطكم الخاص للاطلاع على رصيدكم الحالي:\n\nالرابط:\n"+c.link+"\n\nنرجو منكم عدم مشاركة هذا الرابط مع أي شخص، حفاظاً على خصوصية معلومات حسابكم.\n\nكما نوصي بحفظ الرابط على هاتفكم من خلال تثبيت صفحة Cellix، وذلك باتباع الخطوات التالية:\n\n1- افتحوا الرابط باستخدام Google Chrome.\n2- اضغطوا على ⋮ ثم اختاروا Install / تثبيت التطبيق إذا ظهر الخيار.\n3- اضغطوا Install / تثبيت للتأكيد.\n\nلمزيد من التفاصيل أو المساعدة، يرجى التواصل مع إدارة Cellix حصراً على الرقم الخاص: 81024686");return '<tr><td>'+(i+1)+'</td><td><b>'+esc(c.name)+'</b></td><td>'+esc(c.phone)+'</td><td class="num">'+money(amt)+'</td><td><span class="pill '+(missing?'missing':paid?'paid':'due')+'">'+(missing?'Not in latest Excel':paid?'✓ Account Paid':'Outstanding Balance')+'</span></td><td><a class="mini" href="'+esc(c.link)+'" target="_blank">Open Link</a></td><td><a class="mini wa" href="'+wa+'" target="_blank">WhatsApp</a></td></tr>'}).join("")||'<tr><td colspan="7" class="empty">No customers match your filter.</td></tr>';
-$("historyBody").innerHTML=state.history.map(h=>'<tr><td><b>'+esc(h.name)+'</b></td><td>'+money(h.previous)+'</td><td>'+money(h.current)+'</td><td class="'+(h.diff>0?'plus':h.diff<0?'minus':'')+'">'+(h.diff>0?'+':'')+money(h.diff)+'</td><td>'+esc(h.type)+'</td><td>'+localTime(h.at)+'</td></tr>').join("")||'<tr><td colspan="6" class="empty">No changes recorded yet.</td></tr>';
+ونشارككم رابطكم الخاص للاطلاع على رصيدكم الحالي:
+
+الرابط:
+${base}
+
+نرجو منكم عدم مشاركة هذا الرابط مع أي شخص، حفاظاً على خصوصية معلومات حسابكم.
+
+كما نوصي بحفظ الرابط على هاتفكم من خلال تثبيت صفحة Cellix، وذلك باتباع الخطوات التالية:
+
+1- افتحوا الرابط باستخدام Google Chrome.
+2- اضغطوا على ⋮ ثم اختاروا Install / تثبيت التطبيق إذا ظهر الخيار.
+3- اضغطوا Install / تثبيت للتأكيد.
+
+لمزيد من التفاصيل أو المساعدة، يرجى التواصل مع إدارة Cellix حصراً على الرقم الخاص: 81024686`;
+ return "https://wa.me/"+waPhone(c.phone)+"?text="+encodeURIComponent(text);
 }
-async function loadDashboard(){try{const d=await fetch("/api/dashboard?token="+encodeURIComponent(adminToken()),{cache:"no-store"}).then(async r=>{const d=await r.json();if(!r.ok||d.ok===false)throw new Error(d.error||d.message||("HTTP "+r.status));return d;});state=d;$("dashboard").classList.remove("hidden");$("lastUpdated").textContent=localTime(d.updatedAt);render();}catch(e){const m=$("uploadMsg");if(m){m.className="msg bad";m.textContent="Dashboard error: "+(e.message||e)}else alert("Dashboard error: "+(e.message||e));}}
-$("search").addEventListener("input",render);$("filter").addEventListener("change",render);
-$("token").addEventListener("change",()=>{if(adminToken())loadDashboard()});
-
-// Upload is handled by the native HTML form above.
-window.addEventListener('message',e=>{if(!e.data||e.data.type!=='cellix-upload')return;const msg=document.getElementById('uploadMsg');if(msg)msg.textContent='✓ Upload successful. '+e.data.count+' customers updated.';loadDashboard();});
-$('uploadResult').addEventListener('load',()=>{try{const doc=$('uploadResult').contentDocument;if(doc&&/Upload successful/i.test(doc.body?.textContent||'')){const msg=$('uploadMsg');if(msg)msg.textContent='✓ Upload successful. '+(doc.body.textContent.match(/\d+/)?.[0]||'')+' customers updated.';loadDashboard();}}catch(e){}});
-
+let DATA=[];
+function render(){
+ const q=$("search").value.trim().toLowerCase();
+ const rows=DATA.filter(c=>(c.name+" "+c.phone).toLowerCase().includes(q));
+ $("list").innerHTML=rows.map(c=>{
+   const bal=Number(c.remaining)||0;
+   const status=bal===0?'<span class="badge paid">Paid</span>':'<span class="badge out">Outstanding</span>';
+   const link=location.origin+"/c/"+encodeURIComponent(c.token);
+   return `<tr><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${money(bal)}</td><td>${status}</td><td><a href="${link}" target="_blank">Open private link</a></td><td><a class="wa" href="${waLink(c)}" target="_blank">WhatsApp</a></td></tr>`;
+ }).join("")||'<tr><td colspan="6" class="muted">No customers found.</td></tr>';
+ $("count").textContent=DATA.length;
+ $("outstanding").textContent=money(DATA.reduce((s,c)=>s+(Number(c.remaining)||0),0));
+ $("paid").textContent=DATA.filter(c=>(Number(c.remaining)||0)===0).length;
+}
+function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
+async function load(){
+ try{const r=await fetch("/api/admin/data",{headers:{"x-admin-token":token()}});const d=await r.json();if(!d.ok)throw Error(d.error||"Unable to load");DATA=d.clients||[];render();}
+ catch(e){show(e.message);}
+}
+$("search").oninput=render;
+$("upload").onclick=async()=>{
+ const f=$("file").files[0]; if(!token()){show("Enter the admin token.");return;} if(!f){show("Select the Excel file.");return;}
+ $("upload").disabled=true;show("Reading Excel...");
+ try{
+  const buf=await f.arrayBuffer();
+  const s=document.createElement("script");
+  s.src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+  await new Promise((res,rej)=>{s.onload=res;s.onerror=rej;document.head.appendChild(s)});
+  const wb=XLSX.read(buf,{type:"array"}), ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+  if(!rows.length)throw Error("Excel file is empty.");
+  const h=rows[0].map(v=>String(v).trim().toLowerCase());
+  const find=(...a)=>{for(const n of a){const i=h.indexOf(n);if(i>=0)return i}return -1};
+  const ni=find("name","client name","customer name"),pi=find("contact number","phone","phone number","contact"),ri=find("remaining balance","remaining","balance due","amount due");
+  if(ni<0||pi<0||ri<0)throw Error("Required columns: Name, Contact Number, Remaining Balance.");
+  const clients=[];
+  for(let i=1;i<rows.length;i++){
+   const name=String(rows[i][ni]??"").trim(),phone=String(rows[i][pi]??"").trim();
+   let remaining=Number(String(rows[i][ri]??0).replace(/,/g,"").replace(/[^0-9.-]/g,""))||0;
+   if(name||phone)clients.push({name,phone,remaining});
+  }
+  if(!clients.length)throw Error("No customer rows found.");
+  show("Updating "+clients.length+" customers...");
+  const r=await fetch("/api/upload",{method:"POST",headers:{"content-type":"application/json","x-admin-token":token()},body:JSON.stringify({clients})});
+  const d=await r.json(); if(!d.ok)throw Error(d.error||"Upload failed.");
+  show("✓ Upload successful — "+d.count+" customers updated. Private links preserved.",true);
+  $("file").value=""; await load();
+ }catch(e){show("Upload failed: "+e.message)}finally{$("upload").disabled=false}
+};
 </script></body></html>`;
 
-function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json;charset=UTF-8","cache-control":"no-store"}});}
+const PRIVATE_PAGE = `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cellix — Your Balance</title>
+<style>
+body{margin:0;background:#f4f7fb;font-family:Arial,sans-serif;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{width:min(460px,100%);background:white;border-radius:25px;padding:28px;box-shadow:0 12px 40px #14285018;text-align:center}
+.logo{font-size:42px;font-weight:900;color:#1677ff}.sub{color:#687386;margin:8px 0 24px}
+.name{font-size:20px;font-weight:800}.label{color:#687386;margin-top:22px}.amount{font-size:36px;font-weight:900;margin:8px 0 14px}
+.status{display:inline-block;padding:9px 15px;border-radius:999px;font-weight:800}.paid{background:#e9f8ef;color:#16803c}.out{background:#fff4df;color:#9a6500}
+.time{font-size:12px;color:#8b95a5;margin-top:22px}
+</style></head><body><main class="card">
+<div class="logo">Cellix</div><div class="sub">Your outstanding balance</div>
+<div id="name" class="name"></div><div class="label">Remaining balance</div><div id="amount" class="amount"></div><div id="status"></div><div id="time" class="time"></div>
+</main><script>
+(async()=>{try{const d=await fetch(location.pathname.replace(/^\\/c\\//,"/api/private/")).then(r=>r.json());
+if(!d.ok){document.querySelector("main").innerHTML="<div class='logo'>Cellix</div><p>Private link not found.</p>";return}
+document.getElementById("name").textContent=d.customer.name;
+document.getElementById("amount").textContent=new Intl.NumberFormat("en-US").format(Number(d.customer.remaining)||0)+" LBP";
+const paid=(Number(d.customer.remaining)||0)===0;document.getElementById("status").innerHTML=paid?'<span class="status paid">✓ Account Paid</span>':'<span class="status out">Outstanding Balance</span>';
+document.getElementById("time").textContent="Checked at: "+d.checkedAt;
+}catch(e){document.querySelector("main").innerHTML="<div class='logo'>Cellix</div><p>Unable to load balance.</p>"}})();
+</script></body></html>`;
+
+function json(data,status=200){
+ return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json;charset=UTF-8","cache-control":"no-store"}});
+}
 function normalizePhone(v){return String(v??"").replace(/\D/g,"");}
 function normalizeName(v){return String(v??"").trim().toLowerCase().replace(/\s+/g," ");}
-function waPhone(v){let p=normalizePhone(v);if(p.startsWith("0"))p="961"+p.slice(1);else if(p&&!p.startsWith("961"))p="961"+p;return p;}
-function makeToken(){const b=new Uint8Array(16);crypto.getRandomValues(b);return Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");}
-
-
-async function serverUnzipEntries(buf){
- const a=new Uint8Array(buf),dv=new DataView(buf);const u16=p=>dv.getUint16(p,true),u32=p=>dv.getUint32(p,true);
- let e=-1;for(let p=a.length-22;p>=Math.max(0,a.length-65557);p--){if(u32(p)===0x06054b50){e=p;break}}
- if(e<0)throw new Error("Invalid XLSX file (ZIP header not found).");
- const count=u16(e+10),cdOff=u32(e+16),out={};let p=cdOff;
- for(let i=0;i<count;i++){
-  if(u32(p)!==0x02014b50)throw new Error("Invalid XLSX central directory.");
-  const method=u16(p+10),csize=u32(p+20),nlen=u16(p+28),xlen=u16(p+30),clen=u16(p+32),loff=u32(p+42);
-  const name=new TextDecoder().decode(a.slice(p+46,p+46+nlen));const ln=u16(loff+26),lx=u16(loff+28);
-  const data=a.slice(loff+30+ln+lx,loff+30+ln+lx+csize);
-  if(method===0)out[name]=data;else if(method===8){if(typeof DecompressionStream==="undefined")throw new Error("This Worker cannot decompress XLSX files.");const ds=new DecompressionStream("deflate-raw");out[name]=new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(ds)).arrayBuffer());}else throw new Error("Unsupported XLSX compression method.");
-  p+=46+nlen+xlen+clen;
- }
- return out;
-}
-function xmlDecode(s){return String(s??"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&");}
-function xmlAttr(tag,name){const re=new RegExp("\\b"+name.replace(/[-/\\^$*+?.()|[\]{}]/g,"\\$&")+"\\s*=\\s*[\\\"']([^\\\"']*)[\\\"']","i");const m=String(tag).match(re);return m?xmlDecode(m[1]):"";}
-function xmlInnerText(fragment){let s=String(fragment??"");s=s.replace(/<[^>]+>/g,"");return xmlDecode(s);}
-function xmlElements(xml,tag){const out=[];const re=new RegExp("<"+tag+"\\b[^>]*>([\\s\\S]*?)</"+tag+">","gi");let m;while((m=re.exec(xml)))out.push({open:m[0].slice(0,m[0].indexOf(">")+1),inner:m[1]});return out;}
-async function parseXlsxServer(file){
- if(/\.csv$/i.test(file.name)){
-  const text=await file.text();return text.split(/\r?\n/).filter(x=>x.trim()!=="").map(line=>{let out=[],cur="",q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;continue}if(ch==='"'){q=!q;continue}if(ch===','&&!q){out.push(cur);cur=""}else cur+=ch}out.push(cur);return out});
- }
- const entries=await serverUnzipEntries(await file.arrayBuffer());
- const decoder=new TextDecoder("utf-8");
- const workbook=decoder.decode(entries["xl/workbook.xml"]||new Uint8Array());
- const relxml=decoder.decode(entries["xl/_rels/workbook.xml.rels"]||new Uint8Array());
- if(!workbook||!relxml)throw new Error("Invalid XLSX file: workbook data is missing.");
- const sheetMatch=workbook.match(/<sheet\b[^>]*>/i);if(!sheetMatch)throw new Error("The Excel file has no sheets.");
- const rid=xmlAttr(sheetMatch[0],"r:id")||xmlAttr(sheetMatch[0],"id");let target="";
- const rels=relxml.match(/<Relationship\b[^>]*>/gi)||[];for(const r of rels){if(xmlAttr(r,"Id")===rid){target=xmlAttr(r,"Target");break;}}
- if(!target)target="worksheets/sheet1.xml";target=target.replace(/^\//,"");if(!target.startsWith("xl/"))target="xl/"+target.replace(/^xl\//,"");
- const shared=[];const ss=entries["xl/sharedStrings.xml"]?decoder.decode(entries["xl/sharedStrings.xml"]):"";
- if(ss){for(const si of xmlElements(ss,"si")){const ts=si.inner.match(/<t\b[^>]*>([\s\S]*?)<\/t>/gi)||[];shared.push(ts.map(t=>xmlInnerText(t)).join(""));}}
- const sheet=entries[target]?decoder.decode(entries[target]):"";if(!sheet)throw new Error("Worksheet data is missing.");
- const rows=[];const rowEls=xmlElements(sheet,"row");
- for(let ri=0;ri<rowEls.length;ri++){
-  const row=rowEls[ri];const arr=[];const cells=row.inner.match(/<c\b[^>]*>[\s\S]*?<\/c>/gi)||[];
-  for(const cell of cells){const open=cell.slice(0,cell.indexOf(">")+1);const ref=xmlAttr(open,"r")||"A1";const m=ref.match(/^([A-Z]+)(\d+)$/i);if(!m)continue;let col=0;for(const ch of m[1].toUpperCase())col=col*26+ch.charCodeAt(0)-64;col--;
-   const type=xmlAttr(open,"t");let val="";
-   if(type==="inlineStr"){const is=cell.match(/<is\b[^>]*>([\s\S]*?)<\/is>/i);const ts=is?is[1].match(/<t\b[^>]*>([\s\S]*?)<\/t>/gi)||[]:[];val=ts.map(t=>xmlInnerText(t)).join("");}
-   else{const vm=cell.match(/<v\b[^>]*>([\s\S]*?)<\/v>/i);val=vm?xmlDecode(vm[1]):"";if(type==="s")val=shared[Number(val)]??"";else if(type==="b")val=val==="1"?"TRUE":"FALSE";}
-   arr[col]=val;
-  }
-  rows.push(arr);
- }
- return rows;
-}
-async function processUploadedClients(request,env,incoming){
- let allCustomers=[];const oldRaw=await env.BALANCES.get(DATA_KEY);if(oldRaw){try{allCustomers=JSON.parse(oldRaw)}catch{}}
- const findExisting=c=>{const p=normalizePhone(c.phone),n=normalizeName(c.name);return allCustomers.find(x=>(p&&normalizePhone(x.phone)===p)||(n&&normalizeName(x.name)===n));};
- const updated=[];const changes=[];const now=new Date().toISOString();
- for(const c of incoming){const existing=findExisting(c);const customer={name:c.name||existing?.name||"",phone:c.phone||existing?.phone||"",remaining:c.remaining,token:existing?.token||makeToken(),status:c.remaining===0?"zero_balance":"active"};const previous=existing?Number(existing.remaining)||0:0;const type=!existing?"New Customer":(previous===c.remaining?"No Change":(c.remaining===0?"Account Paid":c.remaining>previous?"Balance Increased":"Balance Decreased"));changes.push({name:customer.name,previous,current:c.remaining,diff:c.remaining-previous,type,at:now});if(existing){const idx=allCustomers.indexOf(existing);if(idx>=0)allCustomers[idx]=customer}else allCustomers.push(customer);updated.push(customer)}
- for(const c of allCustomers){if(!updated.some(u=>u.token===c.token)){const previous=Number(c.remaining)||0;if(previous!==0)changes.push({name:c.name,previous,current:0,diff:-previous,type:"Not in Latest Excel",at:now});c.remaining=0;c.status="not_in_latest"}}
- const historyRaw=await env.BALANCES.get("history");let history=[];if(historyRaw){try{history=JSON.parse(historyRaw)}catch{}}history=changes.concat(history).slice(0,1000);
- await env.BALANCES.put(DATA_KEY,JSON.stringify(allCustomers));await env.BALANCES.put("history",JSON.stringify(history));await env.BALANCES.put("meta",JSON.stringify({count:allCustomers.length,latestCount:updated.length,updatedAt:now}));return {ok:true,count:updated.length,totalCustomers:allCustomers.length};
-}
+function token(){return crypto.randomUUID().replace(/-/g,"")+crypto.randomUUID().replace(/-/g,"");}
+function safeEqual(a,b){return String(a||"")===String(b||"");}
 
 export default {
  async fetch(request,env){
   const url=new URL(request.url);
-  if(url.pathname==="/admin/upload")return new Response(ADMIN,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
-  if(url.pathname.startsWith("/c/")&&url.pathname.length>3)return new Response(PRIVATE_PAGE,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
-  if(url.pathname==="/api/private"){
-   if(!env.BALANCES)return json({ok:false,message:"Balance storage is not configured."},500);const token=String(url.searchParams.get("token")||"").trim();const raw=await env.BALANCES.get(DATA_KEY);if(!token||!raw)return json({ok:false,message:"Invalid private link."},404);let clients=[];try{clients=JSON.parse(raw)}catch{return json({ok:false,message:"Stored data is invalid."},500)}const customer=clients.find(c=>String(c.token||"")===token);if(!customer)return json({ok:false,message:"This private link is invalid or no longer active."},404);return json({ok:true,customer:{name:customer.name,remaining:Number(customer.remaining)||0,status:customer.status||"active"}});
+
+  if(url.pathname==="/admin/upload"){
+   return new Response(ADMIN,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
   }
-  if(url.pathname==="/api/check"){
-   if(!env.BALANCES)return json({ok:false,message:"Balance storage is not configured."},500);const phone=normalizePhone(url.searchParams.get("phone")),name=normalizeName(url.searchParams.get("name"));if(!phone||!name)return json({ok:false,message:"Missing phone or name."},400);const raw=await env.BALANCES.get(DATA_KEY);if(!raw)return json({ok:false,message:"No customer data has been uploaded yet."},404);let clients=[];try{clients=JSON.parse(raw)}catch{return json({ok:false,message:"Stored data is invalid."},500)}const customer=clients.find(c=>normalizePhone(c.phone)===phone&&normalizeName(c.name)===name);return customer?json({ok:true,customer}):json({ok:false,message:"No matching customer was found."});
+
+  if(url.pathname.startsWith("/c/")){
+   return new Response(PRIVATE_PAGE,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
   }
-  if(url.pathname==="/api/dashboard"){
-   if(!env.BALANCES)return json({ok:false,message:"Balance storage is not configured."},500);const token=request.headers.get("x-admin-token")||url.searchParams.get("token")||"";if(!env.ADMIN_TEST_TOKEN||token!==env.ADMIN_TEST_TOKEN)return json({ok:false,message:"Unauthorized"},401);const raw=await env.BALANCES.get(DATA_KEY);let clients=[];if(raw){try{clients=JSON.parse(raw)}catch{return json({ok:false,message:"Stored data is invalid."},500)}}const metaRaw=await env.BALANCES.get("meta");let meta={};if(metaRaw){try{meta=JSON.parse(metaRaw)}catch{}}const histRaw=await env.BALANCES.get("history");let history=[];if(histRaw){try{history=JSON.parse(histRaw)}catch{}}const resultClients=clients.map(c=>({name:c.name||"",phone:c.phone||"",remaining:Number(c.remaining)||0,status:c.status||((Number(c.remaining)||0)===0?"zero_balance":"active"),link:new URL("/c/"+c.token,request.url).toString()}));return json({ok:true,clients:resultClients,history:history.slice(0,100),updatedAt:meta.updatedAt||null});
+
+  if(url.pathname.startsWith("/api/private/")){
+   const t=decodeURIComponent(url.pathname.slice("/api/private/".length));
+   if(!t)return json({ok:false},404);
+   const raw=await env.BALANCES?.get(DATA_KEY);
+   if(!raw)return json({ok:false},404);
+   let clients;try{clients=JSON.parse(raw)}catch{return json({ok:false},500)}
+   const c=clients.find(x=>x.token===t);
+   if(!c)return json({ok:false},404);
+   const checkedAt=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Beirut",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(new Date())+" • Lebanon Time (UTC+3)";
+   return json({ok:true,customer:{name:c.name,remaining:Number(c.remaining)||0},checkedAt});
   }
-  if(url.pathname==="/api/upload-file"&&request.method==="POST"){
-   if(!env.BALANCES)return new Response("<h3 style='font-family:Arial;color:#c62828'>BALANCES KV binding is missing.</h3>",{status:500,headers:{"content-type":"text/html;charset=UTF-8"}});
-   let form;try{form=await request.formData()}catch(e){return new Response("<h3 style='font-family:Arial;color:#c62828'>Could not read the uploaded form.</h3>",{status:400,headers:{"content-type":"text/html;charset=UTF-8"}})}
-   const token=String(form.get("adminToken")||"");if(!env.ADMIN_TEST_TOKEN||token!==env.ADMIN_TEST_TOKEN)return new Response("<h3 style='font-family:Arial;color:#c62828'>Unauthorized — check the admin token.</h3>",{status:401,headers:{"content-type":"text/html;charset=UTF-8"}});
-   const file=form.get("file");if(!file||typeof file.arrayBuffer!=="function")return new Response("<h3 style='font-family:Arial;color:#c62828'>No Excel file was received.</h3>",{status:400,headers:{"content-type":"text/html;charset=UTF-8"}});
-   try{
-    const rows=await parseXlsxServer(file);if(!rows.length)throw new Error("The Excel file is empty.");const header=(rows[0]||[]).map(v=>String(v??"").trim().toLowerCase());const find=(...names)=>{for(const n of names){const i=header.indexOf(n.toLowerCase());if(i>=0)return i}return -1};const nameI=find("name","client name","customer name"),phoneI=find("contact number","phone","phone number","contact"),remI=find("remaining balance","remaining","balance due","amount due");if(nameI<0||phoneI<0||remI<0)throw new Error("Required columns not found. Need: Name, Contact Number, Remaining Balance.");const clients=[];for(let i=1;i<rows.length;i++){const name=String(rows[i]?.[nameI]??"").trim(),phone=String(rows[i]?.[phoneI]??"");let remaining=rows[i]?.[remI]??0;if(name||phone){remaining=Number(String(remaining).replace(/,/g,"").replace(/[^0-9.-]/g,""))||0;clients.push({name,phone,remaining})}}if(!clients.length)throw new Error("No customer rows found.");const result=await processUploadedClients(request,env,clients);
-    return new Response("<html><body style='font-family:Arial;padding:12px;color:#16803c'><b>✓ Upload successful</b><br>"+result.count+" customers updated.<script>parent.postMessage({type:'cellix-upload',ok:true,count:"+Number(result.count||0)+"},'*');</script></body></html>",{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
-   }catch(e){return new Response("<html><body style='font-family:Arial;padding:12px'><b style='color:#c62828'>✕ Upload failed</b><br>"+String(e.message||e).replace(/[<>&]/g,m=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[m]))+"</body></html>",{status:400,headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}})}
+
+  if(url.pathname==="/api/admin/data"){
+   if(!safeEqual(request.headers.get("x-admin-token"),env.ADMIN_TEST_TOKEN))return json({ok:false,error:"Unauthorized"},401);
+   const raw=await env.BALANCES?.get(DATA_KEY);let clients=[];
+   if(raw){try{clients=JSON.parse(raw)}catch{}}
+   return json({ok:true,clients});
   }
+
   if(url.pathname==="/api/upload"&&request.method==="POST"){
-   if(!env.BALANCES)return json({ok:false,error:"BALANCES KV binding is missing."},500);const token=request.headers.get("x-admin-token")||"";if(!env.ADMIN_TEST_TOKEN||token!==env.ADMIN_TEST_TOKEN)return json({ok:false,error:"Unauthorized"},401);let body;try{body=await request.json()}catch{return json({ok:false,error:"Invalid JSON"},400)}if(!Array.isArray(body.clients)||!body.clients.length)return json({ok:false,error:"No customer data received."},400);
-   const incoming=body.clients.map(c=>({name:String(c.name??"").trim(),phone:String(c.phone??"").trim(),remaining:Number(c.remaining)||0})).filter(c=>c.name||c.phone);
-   let allCustomers=[];const oldRaw=await env.BALANCES.get(DATA_KEY);if(oldRaw){try{allCustomers=JSON.parse(oldRaw)}catch{}}
-   const oldByToken=new Map(allCustomers.filter(c=>c.token).map(c=>[String(c.token),c]));
-   const phoneKey=c=>normalizePhone(c.phone),nameKey=c=>normalizeName(c.name);
-   const findExisting=c=>{const p=phoneKey(c),n=nameKey(c);return allCustomers.find(x=>(p&&phoneKey(x)===p)||(n&&nameKey(x)===n));};
-   const updated=[];const matchedTokens=new Set();const changes=[];const now=new Date().toISOString();
-   for(const c of incoming){const existing=findExisting(c);const customer={name:c.name||existing?.name||"",phone:c.phone||existing?.phone||"",remaining:c.remaining,token:existing?.token||makeToken(),status:c.remaining===0?"zero_balance":"active"};const previous=existing?Number(existing.remaining)||0:0;const type=!existing?"New Customer":(previous===c.remaining?"No Change":(c.remaining===0?"Account Paid":c.remaining>previous?"Balance Increased":"Balance Decreased"));changes.push({name:customer.name,previous,current:c.remaining,diff:c.remaining-previous,type,at:now});if(existing){const idx=allCustomers.indexOf(existing);if(idx>=0)allCustomers[idx]=customer;matchedTokens.add(String(existing.token));}else allCustomers.push(customer);updated.push(customer);}
-   for(const c of allCustomers){if(!updated.some(u=>u.token===c.token)){const previous=Number(c.remaining)||0;if(previous!==0)changes.push({name:c.name,previous,current:0,diff:-previous,type:"Not in Latest Excel",at:now});c.remaining=0;c.status="not_in_latest";}}
-   const historyRaw=await env.BALANCES.get("history");let history=[];if(historyRaw){try{history=JSON.parse(historyRaw)}catch{}}history=changes.concat(history).slice(0,1000);
-   await env.BALANCES.put(DATA_KEY,JSON.stringify(allCustomers));await env.BALANCES.put("history",JSON.stringify(history));await env.BALANCES.put("meta",JSON.stringify({count:allCustomers.length,latestCount:updated.length,updatedAt:now}));
-   return json({ok:true,count:updated.length,totalCustomers:allCustomers.length});
+   if(!safeEqual(request.headers.get("x-admin-token"),env.ADMIN_TEST_TOKEN))return json({ok:false,error:"Unauthorized"},401);
+   let body;try{body=await request.json()}catch{return json({ok:false,error:"Invalid JSON"},400)}
+   if(!Array.isArray(body.clients)||!body.clients.length)return json({ok:false,error:"No customer data received."},400);
+
+   const oldRaw=await env.BALANCES?.get(DATA_KEY);
+   let old=[];if(oldRaw){try{old=JSON.parse(oldRaw)}catch{}}
+   const byPhone=new Map(old.map(c=>[normalizePhone(c.phone),c]));
+   const incoming=new Map(body.clients.map(c=>[normalizePhone(c.phone),c]));
+   const now=new Date().toISOString();
+
+   // Keep every existing customer permanently. Customers missing from the latest Excel become 0.
+   for(const c of old){
+    const p=normalizePhone(c.phone);const n=incoming.get(p);
+    c.remaining=n?Number(n.remaining)||0:0;
+    if(n&&n.name)c.name=String(n.name).trim();
+    c.phone=n?String(n.phone).trim():c.phone;
+    if(!c.token)c.token=token();
+    c.updatedAt=now;
+   }
+   for(const c of body.clients){
+    const p=normalizePhone(c.phone);if(!p)continue;
+    if(byPhone.has(p))continue;
+    old.push({name:String(c.name||"").trim(),phone:String(c.phone||"").trim(),remaining:Number(c.remaining)||0,token:token(),updatedAt:now});
+   }
+   const clients=old.filter(c=>c.name||c.phone);
+   await env.BALANCES.put(DATA_KEY,JSON.stringify(clients));
+   await env.BALANCES.put(META_KEY,JSON.stringify({count:clients.length,updatedAt:now}));
+   return json({ok:true,count:body.clients.length,total:clients.length});
   }
+
   if(url.pathname==="/api/health")return json({ok:true,storage:!!env.BALANCES});
-  return new Response(PAGE,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
+
+  // Keep the old public lookup available for compatibility, but direct customers should use private links.
+  if(url.pathname==="/api/check"){
+   const raw=await env.BALANCES?.get(DATA_KEY);if(!raw)return json({ok:false,message:"No customer data has been uploaded yet."},404);
+   let clients;try{clients=JSON.parse(raw)}catch{return json({ok:false,message:"Stored data is invalid."},500)}
+   const p=normalizePhone(url.searchParams.get("phone")),n=normalizeName(url.searchParams.get("name"));
+   const c=clients.find(x=>normalizePhone(x.phone)===p&&normalizeName(x.name)===n);
+   return c?json({ok:true,customer:c}):json({ok:false,message:"No matching customer was found."});
+  }
+
+  return Response.redirect(new URL("/admin/upload",request.url).toString(),302);
  }
 };
