@@ -199,21 +199,37 @@ async function serverUnzipEntries(buf){
  }
  return out;
 }
-function xmlFirstText(el){return el ? (el.textContent || "") : ""}
+function xmlDecode(s){return String(s??"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&");}
+function xmlAttr(tag,name){const re=new RegExp("\\b"+name.replace(/[-/\\^$*+?.()|[\]{}]/g,"\\$&")+"\\s*=\\s*[\\\"']([^\\\"']*)[\\\"']","i");const m=String(tag).match(re);return m?xmlDecode(m[1]):"";}
+function xmlInnerText(fragment){let s=String(fragment??"");s=s.replace(/<[^>]+>/g,"");return xmlDecode(s);}
+function xmlElements(xml,tag){const out=[];const re=new RegExp("<"+tag+"\\b[^>]*>([\\s\\S]*?)</"+tag+">","gi");let m;while((m=re.exec(xml)))out.push({open:m[0].slice(0,m[0].indexOf(">")+1),inner:m[1]});return out;}
 async function parseXlsxServer(file){
  if(/\.csv$/i.test(file.name)){
   const text=await file.text();return text.split(/\r?\n/).filter(x=>x.trim()!=="").map(line=>{let out=[],cur="",q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;continue}if(ch==='"'){q=!q;continue}if(ch===','&&!q){out.push(cur);cur=""}else cur+=ch}out.push(cur);return out});
  }
  const entries=await serverUnzipEntries(await file.arrayBuffer());
- const wb=new DOMParser().parseFromString(new TextDecoder().decode(entries["xl/workbook.xml"]),"application/xml");
- const rels=new DOMParser().parseFromString(new TextDecoder().decode(entries["xl/_rels/workbook.xml.rels"]),"application/xml");
- const sheet=wb.getElementsByTagNameNS("*","sheet")[0];if(!sheet)throw new Error("The Excel file has no sheets.");
- const rid=sheet.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id")||sheet.getAttribute("r:id");let target="";
- for(const r of rels.getElementsByTagNameNS("*","Relationship")){if(r.getAttribute("Id")===rid){target=r.getAttribute("Target")||"";break}}
+ const decoder=new TextDecoder("utf-8");
+ const workbook=decoder.decode(entries["xl/workbook.xml"]||new Uint8Array());
+ const relxml=decoder.decode(entries["xl/_rels/workbook.xml.rels"]||new Uint8Array());
+ if(!workbook||!relxml)throw new Error("Invalid XLSX file: workbook data is missing.");
+ const sheetMatch=workbook.match(/<sheet\b[^>]*>/i);if(!sheetMatch)throw new Error("The Excel file has no sheets.");
+ const rid=xmlAttr(sheetMatch[0],"r:id")||xmlAttr(sheetMatch[0],"id");let target="";
+ const rels=relxml.match(/<Relationship\b[^>]*>/gi)||[];for(const r of rels){if(xmlAttr(r,"Id")===rid){target=xmlAttr(r,"Target");break;}}
  if(!target)target="worksheets/sheet1.xml";target=target.replace(/^\//,"");if(!target.startsWith("xl/"))target="xl/"+target.replace(/^xl\//,"");
- const shared=[];if(entries["xl/sharedStrings.xml"]){const sd=new DOMParser().parseFromString(new TextDecoder().decode(entries["xl/sharedStrings.xml"]),"application/xml");for(const si of sd.getElementsByTagNameNS("*","si"))shared.push(xmlFirstText(si));}
- const doc=new DOMParser().parseFromString(new TextDecoder().decode(entries[target]),"application/xml");const rows=[];
- for(const row of doc.getElementsByTagNameNS("*","row")){const arr=[];for(const c of row.getElementsByTagNameNS("*","c")){const ref=c.getAttribute("r")||"A1",m=ref.match(/^([A-Z]+)(\d+)$/i);if(!m)continue;let col=0;for(const ch of m[1].toUpperCase())col=col*26+ch.charCodeAt(0)-64;col--;const type=c.getAttribute("t")||"";let val="";if(type==="inlineStr"){val=xmlFirstText(c.getElementsByTagNameNS("*","is")[0])}else{const v=c.getElementsByTagNameNS("*","v")[0];val=xmlFirstText(v);if(type==="s")val=shared[Number(val)]??"";else if(type==="b")val=val==="1"?"TRUE":"FALSE"}arr[col]=val}rows[Number(row.getAttribute("r")||rows.length+1)-1]=arr}
+ const shared=[];const ss=entries["xl/sharedStrings.xml"]?decoder.decode(entries["xl/sharedStrings.xml"]):"";
+ if(ss){for(const si of xmlElements(ss,"si")){const ts=si.inner.match(/<t\b[^>]*>([\s\S]*?)<\/t>/gi)||[];shared.push(ts.map(t=>xmlInnerText(t)).join(""));}}
+ const sheet=entries[target]?decoder.decode(entries[target]):"";if(!sheet)throw new Error("Worksheet data is missing.");
+ const rows=[];const rowEls=xmlElements(sheet,"row");
+ for(let ri=0;ri<rowEls.length;ri++){
+  const row=rowEls[ri];const arr=[];const cells=row.inner.match(/<c\b[^>]*>[\s\S]*?<\/c>/gi)||[];
+  for(const cell of cells){const open=cell.slice(0,cell.indexOf(">")+1);const ref=xmlAttr(open,"r")||"A1";const m=ref.match(/^([A-Z]+)(\d+)$/i);if(!m)continue;let col=0;for(const ch of m[1].toUpperCase())col=col*26+ch.charCodeAt(0)-64;col--;
+   const type=xmlAttr(open,"t");let val="";
+   if(type==="inlineStr"){const is=cell.match(/<is\b[^>]*>([\s\S]*?)<\/is>/i);const ts=is?is[1].match(/<t\b[^>]*>([\s\S]*?)<\/t>/gi)||[]:[];val=ts.map(t=>xmlInnerText(t)).join("");}
+   else{const vm=cell.match(/<v\b[^>]*>([\s\S]*?)<\/v>/i);val=vm?xmlDecode(vm[1]):"";if(type==="s")val=shared[Number(val)]??"";else if(type==="b")val=val==="1"?"TRUE":"FALSE";}
+   arr[col]=val;
+  }
+  rows.push(arr);
+ }
  return rows;
 }
 async function processUploadedClients(request,env,incoming){
