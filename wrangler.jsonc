@@ -8,6 +8,14 @@
       "id": "de6ae4cb1bb44ae985fb7a049e95fac0"
     }
   ],
+  "previews": {
+    "kv_namespaces": [
+      {
+        "binding": "BALANCES",
+        "id": "PUT_CELLIX_TEST_ID_HERE"
+      }
+    ]
+  },
   "browser": {
     "binding": "BROWSER"
   }
