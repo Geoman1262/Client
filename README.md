@@ -38,3 +38,6 @@ After deployment, you can open:
     /admin/diagnostic?token=YOUR_ADMIN_TEST_TOKEN
 
 The token is only for this temporary diagnostic test. Do not post the URL or token publicly.
+
+
+VERSION: CELLIX-SMARTFLOW-V2-FLAT-2026-10-04
