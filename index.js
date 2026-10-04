@@ -1,78 +1,28 @@
-const DATA_KEY = "clients";
-
 const PAGE = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Cellix — Check Your Balance</title>
+<title>Cellix — Private Link</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 40px rgba(20,40,80,.10)}
+.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:30px;box-shadow:0 12px 40px rgba(20,40,80,.10);text-align:center}
 .logo{font-size:40px;font-weight:800;color:#1677ff;letter-spacing:-1.5px}
-.sub{color:#697386;margin:7px 0 25px;font-size:16px}
-label{display:block;font-size:13px;font-weight:700;margin:16px 0 7px}
-input{width:100%;height:52px;border:1px solid #d9e0ea;border-radius:13px;padding:0 15px;font-size:16px;outline:none}
-input:focus{border-color:#1677ff;box-shadow:0 0 0 3px rgba(22,119,255,.10)}
-button{width:100%;height:54px;border:0;border-radius:14px;background:#1677ff;color:#fff;font-size:16px;font-weight:800;margin-top:20px;cursor:pointer}
-.result{margin-top:22px;border-radius:18px;padding:20px;display:none}
-.ok{background:#eef8f1;border:1px solid #ccebd5}
-.none{background:#f7f8fa;border:1px solid #e2e6ec}
-.name{font-size:16px;font-weight:800}
-.amount{font-size:30px;font-weight:900;margin-top:8px}
-.note{font-size:13px;color:#687386;margin-top:8px}
-.err{color:#c62828;font-size:14px;margin-top:14px;display:none}
-.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:22px}
+.sub{color:#697386;margin:10px 0 0;font-size:17px;line-height:1.5}
+.note{margin-top:24px;background:#f7f9fc;border:1px solid #e2e7ef;border-radius:16px;padding:16px;color:#596579;font-size:14px;line-height:1.5}
+.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:24px}
 </style>
 </head>
 <body>
 <main class="card">
 <div class="logo">Cellix</div>
-<div class="sub">Check your outstanding balance</div>
-<label>Phone Number</label>
-<input id="phone" inputmode="numeric" autocomplete="tel" placeholder="Enter phone number">
-<label>Full Name</label>
-<input id="name" autocomplete="name" placeholder="Enter your full name">
-<button id="check">Check Balance</button>
-<div id="err" class="err"></div>
-<section id="result" class="result">
-<div id="resultName" class="name"></div>
-<div id="resultAmount" class="amount"></div>
-<div id="resultNote" class="note"></div>
-</section>
+<div class="sub">Your balance is available through your private link.</div>
+<div class="note">Please open the private link sent to you by Cellix to view your current outstanding balance.</div>
 <div class="small">Cellix</div>
 </main>
-<script>
-const normPhone=v=>String(v??"").replace(/\\D/g,"");
-const normName=v=>String(v??"").trim().toLowerCase().replace(/\\s+/g," ");
-const money=n=>new Intl.NumberFormat("en-US").format(Number(n)||0)+" LBP";
-document.getElementById("check").onclick=async()=>{
- const phone=normPhone(document.getElementById("phone").value);
- const name=normName(document.getElementById("name").value);
- const err=document.getElementById("err"),box=document.getElementById("result");
- err.style.display="none";box.style.display="none";
- if(!phone||!name){err.textContent="Please enter your phone number and full name.";err.style.display="block";return;}
- const btn=document.getElementById("check"); btn.disabled=true; btn.textContent="Checking...";
- try{
-  const r=await fetch("/api/check?phone="+encodeURIComponent(phone)+"&name="+encodeURIComponent(name));
-  const d=await r.json();
-  if(d.ok&&d.customer){
-   box.className="result ok"; box.style.display="block";
-   document.getElementById("resultName").textContent=d.customer.name;
-   document.getElementById("resultAmount").textContent=money(d.customer.remaining);
-   document.getElementById("resultNote").textContent="Remaining balance";
-  }else{
-   box.className="result none"; box.style.display="block";
-   document.getElementById("resultName").textContent="";
-   document.getElementById("resultAmount").textContent="No balance found";
-   document.getElementById("resultNote").textContent=d.message||"No matching customer was found.";
-  }
- }catch(e){err.textContent="Unable to check balance. Please try again.";err.style.display="block";}
- btn.disabled=false;btn.textContent="Check Balance";
-};
-</script>
-</body></html>`;
+</body>
+</html>`;
 
 const PRIVATE_PAGE = `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Cellix — My Balance</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 40px rgba(20,40,80,.10)}.logo{font-size:40px;font-weight:800;color:#1677ff}.sub{color:#697386;margin:7px 0 25px}.name{font-size:18px;font-weight:800}.checked{font-size:13px;color:#687386;margin-top:7px}.label{font-size:13px;color:#687386;margin-top:22px}.amount{font-size:34px;font-weight:900;margin-top:8px}.status{display:inline-block;margin-top:14px;padding:8px 12px;border-radius:999px;font-size:13px;font-weight:800}.paid{background:#eaf8ef;color:#167a3b}.due{background:#fff4e5;color:#9a5b00}.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:28px}.err{background:#fff2f2;border:1px solid #f0cccc;color:#b42318;border-radius:14px;padding:16px;margin-top:18px}</style></head><body><main class="card"><div class="logo">Cellix</div><div class="sub">Your outstanding balance</div><div id="content">Checking your account...</div><div class="small">Cellix</div><script>
 (async()=>{
