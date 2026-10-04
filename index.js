@@ -74,7 +74,7 @@ document.getElementById("check").onclick=async()=>{
 </script>
 </body></html>`;
 
-const PRIVATE_PAGE = `<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Cellix — My Balance</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 40px rgba(20,40,80,.10)}.logo{font-size:40px;font-weight:800;color:#1677ff}.sub{color:#697386;margin:7px 0 25px}.name{font-size:18px;font-weight:800}.checked{font-size:13px;color:#687386;margin-top:7px}.label{font-size:13px;color:#687386;margin-top:22px}.amount{font-size:34px;font-weight:900;margin-top:8px}.status{display:inline-block;margin-top:14px;padding:8px 12px;border-radius:999px;font-size:13px;font-weight:800}.paid{background:#eaf8ef;color:#167a3b}.due{background:#fff4e5;color:#9a5b00}.updated{font-size:12px;color:#8a93a2;margin-top:12px}.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:28px}.err{background:#fff2f2;border:1px solid #f0cccc;color:#b42318;border-radius:14px;padding:16px;margin-top:18px}</style></head><body><main class="card"><div class="logo">Cellix</div><div class="sub">Your outstanding balance</div><div id="content">Checking your account...</div><div class="small">Cellix</div><script>
+const PRIVATE_PAGE = `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Cellix — My Balance</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 40px rgba(20,40,80,.10)}.logo{font-size:40px;font-weight:800;color:#1677ff}.sub{color:#697386;margin:7px 0 25px}.name{font-size:18px;font-weight:800}.checked{font-size:13px;color:#687386;margin-top:7px}.label{font-size:13px;color:#687386;margin-top:22px}.amount{font-size:34px;font-weight:900;margin-top:8px}.status{display:inline-block;margin-top:14px;padding:8px 12px;border-radius:999px;font-size:13px;font-weight:800}.paid{background:#eaf8ef;color:#167a3b}.due{background:#fff4e5;color:#9a5b00}.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:28px}.err{background:#fff2f2;border:1px solid #f0cccc;color:#b42318;border-radius:14px;padding:16px;margin-top:18px}</style></head><body><main class="card"><div class="logo">Cellix</div><div class="sub">Your outstanding balance</div><div id="content">Checking your account...</div><div class="small">Cellix</div><script>
 (async()=>{
  const c=document.getElementById("content");
  const checkedAt=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Beirut",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(new Date());
@@ -86,8 +86,7 @@ const PRIVATE_PAGE = `<!doctype html><html><head><meta charset="UTF-8"><meta nam
   if(d.ok&&d.customer){
    const amount=Number(d.customer.remaining)||0;
    const paid=amount===0;
-   const updated=d.customer.updatedAt?new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Beirut",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(d.customer.updatedAt)):"Not available";
-   c.innerHTML='<div class="name"></div><div class="checked">Checked at: '+checkedAt+' • Lebanon Time (UTC+3)</div><div class="label">Remaining balance</div><div class="amount"></div><div class="status '+(paid?"paid":"due")+'"></div><div class="updated">Balance updated: '+updated+'</div>';
+   c.innerHTML='<div class="name"></div><div class="checked">Checked at: '+checkedAt+' • Lebanon Time (UTC+3)</div><div class="label">Remaining balance</div><div class="amount"></div><div class="status '+(paid?"paid":"due")+'"></div>';
    c.querySelector(".name").textContent=d.customer.name;
    c.querySelector(".amount").textContent=new Intl.NumberFormat("en-US").format(amount)+" LBP";
    c.querySelector(".status").textContent=paid?"✓ Account Paid":"Outstanding Balance";
@@ -144,7 +143,7 @@ document.getElementById("upload").onclick=async()=>{
   msg.textContent="Uploading "+clients.length+" customers...";
   const r=await fetch("/api/upload",{method:"POST",headers:{"content-type":"application/json","x-admin-token":token},body:JSON.stringify({clients})});
   const d=await r.json();
-  if(d.ok){msg.textContent="Success. "+d.count+" customers updated. "+d.totalCustomers+" customers permanently saved.";const links=document.getElementById("links");links.innerHTML="<h3>Private customer links</h3>"+(d.links||[]).map(x=>'<div class="row"><b>'+x.name+'</b> — '+x.status+'<br><a href="'+x.link+'" target="_blank">'+x.link+'</a></div>').join("");}else msg.textContent="Error: "+(d.error||"Upload failed.");
+  if(d.ok){msg.textContent="Success. "+d.count+" customers updated. "+d.totalCustomers+" customers permanently saved.";const links=document.getElementById("links");links.innerHTML="<h3>Private customer links</h3>"+(d.links||[]).map(x=>{const wa="https://wa.me/"+x.whatsapp+"?text="+encodeURIComponent("إدارة Cellix تشكركم على ثقتكم بنا،\\n\\nونشارككم رابطكم الخاص للاطلاع على رصيدكم الحالي:\\n\\nالرابط:\\n"+x.link+"\\n\\nنرجو منكم عدم مشاركة هذا الرابط مع أي شخص، حفاظاً على خصوصية معلومات حسابكم.\\n\\nكما نوصي بحفظ الرابط على هاتفكم من خلال تثبيت صفحة Cellix، وذلك باتباع الخطوات التالية:\\n\\n1- افتحوا الرابط باستخدام Google Chrome.\\n2- اضغطوا على ⋮ ثم اختاروا Install / تثبيت التطبيق إذا ظهر الخيار.\\n3- اضغطوا Install / تثبيت للتأكيد.\\n\\nلمزيد من التفاصيل أو المساعدة، يرجى التواصل مع إدارة Cellix حصراً على الرقم الخاص: 81024686");return \'<div class="row"><b>\'+x.name+\'</b> — \'+x.status+\'<br><a href="\'+x.link+\'" target="_blank">\'+x.link+\'</a> <a href="\'+wa+\'" target="_blank" style="display:inline-block;margin-left:8px;background:#1677ff;color:#fff;padding:7px 10px;border-radius:8px;text-decoration:none">WhatsApp</a></div>\'}).join("");
  }catch(e){msg.textContent="Error: "+e.message;}
 };
 </script></body></html>`;
@@ -175,7 +174,7 @@ export default {
    let clients=[];try{clients=JSON.parse(raw)}catch{return json({ok:false,message:"Stored data is invalid."},500);}
    const customer=clients.find(c=>String(c.token||"")===token);
    if(!customer)return json({ok:false,message:"This private link is invalid or no longer active."},404);
-   return json({ok:true,customer:{name:customer.name,remaining:Number(customer.remaining)||0,status:customer.status||"active",updatedAt:customer.updatedAt||null}});
+   return json({ok:true,customer:{name:customer.name,remaining:Number(customer.remaining)||0,status:customer.status||"active"}});
   }
 
   if(url.pathname==="/api/check"){
@@ -207,14 +206,14 @@ export default {
     for(const c of incoming){
       const key=normalizePhone(c.phone)||normalizeName(c.name);if(!key)continue;seen.add(key);
       const existing=byKey.get(key);
-      const customer={name:c.name||existing?.name||"",phone:c.phone||existing?.phone||"",remaining:c.remaining,token:existing?.token||makeToken(),status:c.remaining===0?"zero_balance":"active",updatedAt:new Date().toISOString()};
+      const customer={name:c.name||existing?.name||"",phone:c.phone||existing?.phone||"",remaining:c.remaining,token:existing?.token||makeToken(),status:c.remaining===0?"zero_balance":"active"};
       byKey.set(key,customer);updated.push(customer);
     }
     for(const c of allCustomers){const key=normalizePhone(c.phone)||normalizeName(c.name);if(key&&!seen.has(key))byKey.set(key,{...c,status:"not_in_latest"});}
     const clients=Array.from(byKey.values());
     await env.BALANCES.put(DATA_KEY,JSON.stringify(clients));
     await env.BALANCES.put("meta",JSON.stringify({count:clients.length,latestCount:updated.length,updatedAt:new Date().toISOString()}));
-    const links=updated.map(c=>({name:c.name,status:c.status,link:new URL("/c/"+c.token,request.url).toString()}));
+    const links=updated.map(c=>({name:c.name,status:c.status,phone:c.phone,whatsapp:(()=>{let p=String(c.phone||"").replace(/\\D/g,"");if(p.startsWith("0"))p="961"+p.slice(1);else if(!p.startsWith("961"))p="961"+p;return p;})(),link:new URL("/c/"+c.token,request.url).toString()}));
     return json({ok:true,count:updated.length,totalCustomers:clients.length,links});
   }
 
