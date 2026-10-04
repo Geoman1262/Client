@@ -1,211 +1,221 @@
-import puppeteer from "@cloudflare/puppeteer";
+const DATA_PREFIX = "customer:";
+const PHONE_PREFIX = "phone:";
+const META_KEY = "meta";
 
-const SMARTFLOW_LOGIN = "https://celllilo.smartflowsystems.net/HO.php";
-
-const HTML = `<!doctype html>
+const PAGE = `<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cellix — Check Your Balance</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cellix — Balance</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#eef7ff,#f8fbff);color:#18345d}
-.wrap{max-width:520px;margin:0 auto;padding:28px 18px 40px}
-.brand{font-size:42px;font-weight:800;color:#1677ed;margin:10px 0 2px}
-.sub{font-size:19px;color:#47617f;margin-bottom:26px}
-.card{background:#fff;border-radius:24px;padding:24px;box-shadow:0 12px 35px #18345d18}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#eef7ff,#f8fbff);color:#18345d;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:22px}
+.card{width:min(500px,100%);background:#fff;border-radius:26px;padding:30px;box-shadow:0 14px 45px rgba(24,52,93,.12)}
+.logo{font-size:44px;font-weight:800;color:#1677ed;letter-spacing:-2px}
+.sub{font-size:18px;color:#47617f;margin:5px 0 28px}
 h1{font-size:27px;margin:0 0 8px}.hint{color:#64748b;line-height:1.5}
-label{display:block;font-weight:700;margin:18px 0 7px}
-input{width:100%;padding:15px 16px;border:1px solid #d5dfeb;border-radius:13px;font-size:16px;outline:none}
-input:focus{border-color:#1677ed;box-shadow:0 0 0 3px #1677ed18}
-button{width:100%;margin-top:22px;padding:16px;border:0;border-radius:13px;background:#1677ed;color:#fff;font-size:17px;font-weight:700;cursor:pointer}
-button:disabled{opacity:.6}
-#result{display:none;margin-top:20px}
-.total{padding:20px;border-radius:18px;background:#fff0f0;text-align:center}
-.total small{display:block;color:#d33;font-weight:700}.total strong{display:block;color:#d33;font-size:31px;margin-top:5px}
-.item{display:flex;justify-content:space-between;gap:12px;padding:15px 0;border-bottom:1px solid #edf1f5}
-.item:last-child{border-bottom:0}.service{font-weight:700}.date{font-size:13px;color:#64748b;margin-top:4px}.amount{font-weight:800;color:#d33;white-space:nowrap}
-.msg{padding:15px;border-radius:14px;background:#f2f7ff;color:#45627e}
+.result{margin-top:22px;padding:22px;border-radius:20px;background:#f2f7ff;border:1px solid #dce9f8;display:none}
+.name{font-size:18px;font-weight:800}.label{font-size:13px;color:#64748b;margin-top:12px}
+.amount{font-size:34px;font-weight:900;color:#d33;margin-top:5px}
+.empty{padding:18px;border-radius:16px;background:#f7f8fa;color:#64748b;margin-top:22px}
+.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:24px}
 </style>
 </head>
 <body>
-<div class="wrap">
-<div class="brand">Cellix</div>
+<main class="card">
+<div class="logo">Cellix</div>
 <div class="sub">Check Your Balance</div>
-<div class="card">
-<h1>Check Your Unpaid Balance</h1>
-<div class="hint">Enter your phone number and full name to see your latest unpaid amount.</div>
-<label>Phone Number</label>
-<input id="phone" inputmode="tel" placeholder="03 123 456">
-<label>Full Name</label>
-<input id="name" autocomplete="name" placeholder="Full Name">
-<button id="check" onclick="checkBalance()">Check My Balance</button>
-<div id="result"></div>
+<h1>Your Outstanding Balance</h1>
+<div class="hint">This private link shows the latest balance associated with your account.</div>
+<div id="result" class="result">
+<div class="name" id="name"></div>
+<div class="label">Remaining Balance</div>
+<div class="amount" id="amount"></div>
 </div>
-</div>
+<div id="empty" class="empty" style="display:none">No balance information is available for this link.</div>
+<div class="small">Cellix</div>
+</main>
 <script>
-async function checkBalance(){
-const phone=document.getElementById('phone').value.trim();
-const name=document.getElementById('name').value.trim();
-const btn=document.getElementById('check');
-const out=document.getElementById('result');
-if(!phone||!name){out.style.display='block';out.innerHTML='<div class="msg">Please enter your phone number and full name.</div>';return}
-btn.disabled=true;btn.textContent='Checking...';out.style.display='block';
-out.innerHTML='<div class="msg">Please wait while we check your account.</div>';
-try{
-const r=await fetch('/api/check',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({phone,name})});
-const d=await r.json();
-if(!r.ok) throw new Error(d.error||'Unable to check balance');
-if(!d.unpaid?.length){
-out.innerHTML='<div class="msg">No unpaid amount was found.</div>';
-}else{
-const rows=d.unpaid.map(x=>'<div class="item"><div><div class="service">'+escapeHtml(x.service)+'</div><div class="date">'+escapeHtml(x.date)+'</div></div><div class="amount">'+escapeHtml(x.amount)+'</div></div>').join('');
-out.innerHTML='<div class="total"><small>Total Amount Due</small><strong>'+escapeHtml(d.totalRemaining)+'</strong></div><div class="card" style="margin-top:14px;padding:18px"><b>Unpaid Transactions</b>'+rows+'</div>';
-}
-}catch(e){out.innerHTML='<div class="msg">'+escapeHtml(e.message)+'</div>'}
-finally{btn.disabled=false;btn.textContent='Check My Balance'}
-}
-function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+(async()=>{
+ const out=document.getElementById("result"),empty=document.getElementById("empty");
+ try{
+  const token=location.pathname.split("/").filter(Boolean).pop()||"";
+  const r=await fetch("/api/customer/"+encodeURIComponent(token),{cache:"no-store"});
+  const d=await r.json();
+  if(d.ok&&d.customer){
+   document.getElementById("name").textContent=d.customer.name;
+   document.getElementById("amount").textContent=new Intl.NumberFormat("en-US").format(Number(d.customer.remaining)||0)+" LBP";
+   out.style.display="block";
+  }else empty.style.display="block";
+ }catch(e){empty.style.display="block";}
+})();
 </script>
 </body>
 </html>`;
 
-function json(data, status = 200) {
-return new Response(JSON.stringify(data, null, 2), {
-status,
-headers: { "content-type": "application/json; charset=utf-8" }
-});
+const ADMIN = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cellix Admin — Upload Balances</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;background:#f4f7fb;margin:0;padding:20px;color:#172033}
+.box{max-width:700px;margin:15px auto;background:#fff;padding:26px;border-radius:24px;box-shadow:0 10px 35px #0001}
+h1{color:#1677ff;margin:0}.sub{color:#64748b;margin:6px 0 22px}
+input,button{width:100%;height:50px;margin:8px 0;border-radius:11px;border:1px solid #ccd4df;padding:0 13px;font-size:15px}
+button{background:#1677ff;color:#fff;font-weight:800;border:0;cursor:pointer}
+button:disabled{opacity:.6}
+#msg{margin-top:14px;white-space:pre-wrap;font-size:14px}
+#links{margin-top:22px;display:none}
+.link{padding:12px;border:1px solid #e1e7ef;border-radius:12px;margin:8px 0;word-break:break-all;background:#fafcff}
+.link b{display:block;margin-bottom:5px}
+.note{font-size:13px;color:#64748b}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>Cellix</h1>
+<div class="sub">Upload Customer Balances</div>
+<p>Upload a new Excel file. The previous Test customer data will be replaced.</p>
+<input id="token" type="password" placeholder="Admin token">
+<input id="file" type="file" accept=".xlsx,.xls,.csv">
+<button id="upload">Upload & Replace Data</button>
+<div id="msg"></div>
+<div id="links"><h3>Private Customer Links</h3><div id="linkList"></div></div>
+</div>
+<script>
+const msg=document.getElementById("msg"), links=document.getElementById("links"), list=document.getElementById("linkList");
+document.getElementById("upload").onclick=async()=>{
+ const token=document.getElementById("token").value.trim();
+ const f=document.getElementById("file").files[0];
+ links.style.display="none"; list.innerHTML="";
+ if(!token||!f){msg.textContent="Enter the admin token and select an Excel file.";return;}
+ try{
+  msg.textContent="Reading Excel...";
+  const buf=await f.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array"});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+  if(!rows.length) throw new Error("The Excel file is empty.");
+  const header=rows[0].map(v=>String(v).trim().toLowerCase());
+  const find=(...names)=>{for(const n of names){const i=header.indexOf(n);if(i>=0)return i;}return -1};
+  const nameI=find("name","client name","customer name");
+  const phoneI=find("contact number","phone","phone number","contact");
+  const remI=find("remaining balance","remaining","balance due","amount due");
+  if(nameI<0||phoneI<0||remI<0) throw new Error("Required columns: Name, Contact Number, Remaining Balance.");
+  const clients=[];
+  for(let i=1;i<rows.length;i++){
+   const name=String(rows[i][nameI]??"").trim();
+   const phone=String(rows[i][phoneI]??"").trim();
+   let remaining=Number(String(rows[i][remI]??0).replace(/,/g,"").replace(/[^0-9.-]/g,""))||0;
+   if(name||phone) clients.push({name,phone,remaining});
+  }
+  if(!clients.length) throw new Error("No customer rows found.");
+  msg.textContent="Uploading "+clients.length+" customers...";
+  const r=await fetch("/api/upload",{method:"POST",headers:{"content-type":"application/json","x-admin-token":token},body:JSON.stringify({clients})});
+  const d=await r.json();
+  if(!r.ok||!d.ok) throw new Error(d.error||"Upload failed.");
+  msg.textContent="Success. "+d.count+" customers are active.";
+  links.style.display="block";
+  d.links.forEach(x=>{
+   const div=document.createElement("div");div.className="link";
+   const b=document.createElement("b");b.textContent=x.name;
+   const a=document.createElement("div");a.textContent=x.url;
+   const n=document.createElement("div");n.className="note";n.textContent="Private link";
+   div.append(b,a,n);list.appendChild(div);
+  });
+ }catch(e){msg.textContent="Error: "+e.message;}
+};
+</script>
+</body>
+</html>`;
+
+function json(data,status=200){
+ return new Response(JSON.stringify(data),{
+  status,
+  headers:{"content-type":"application/json;charset=UTF-8","cache-control":"no-store"}
+ });
+}
+function normalizePhone(v){return String(v??"").replace(/\D/g,"");}
+
+async function tokenForPhone(phone){
+ const bytes=new TextEncoder().encode(phone);
+ const hash=await crypto.subtle.digest("SHA-256",bytes);
+ return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,"0")).join("").slice(0,32);
 }
 
-async function getLoginInputs(page) {
-return await page.evaluate(() => [...document.querySelectorAll("input")].map((el, i) => ({
-index: i,
-type: el.type,
-name: el.name,
-id: el.id,
-placeholder: el.placeholder,
-autocomplete: el.autocomplete
-})));
-}
-
-async function smartflowLogin(page, env) {
-await page.goto(SMARTFLOW_LOGIN, { waitUntil: "domcontentloaded", timeout: 30000 });
-const inputs = await getLoginInputs(page);
-const passwordIndex = inputs.findIndex(x => x.type === "password");
-if (passwordIndex < 0) {
-throw new Error("SmartFlow login password field was not found.");
-}
-const userCandidates = inputs.filter((x, i) =>
-i !== passwordIndex && ["text", "email", ""].includes(x.type)
-);
-if (!userCandidates.length) {
-throw new Error("SmartFlow username field was not found.");
-}
-const user = userCandidates[0];
-const pass = inputs[passwordIndex];
-const userSelector = user.id ? `#${CSS.escape(user.id)}` :
-user.name ? `input[name="${CSS.escape(user.name)}"]` :
-`input:nth-of-type(${user.index + 1})`;
-const passSelector = pass.id ? `#${CSS.escape(pass.id)}` :
-pass.name ? `input[name="${CSS.escape(pass.name)}"]` :
-`input[type="password"]`;
-await page.locator(userSelector).fill(env.SMARTFLOW_USERNAME);
-await page.locator(passSelector).fill(env.SMARTFLOW_PASSWORD);
-const buttons = await page.evaluate(() => [...document.querySelectorAll("button,input[type=submit]")].map((el,i)=>({
-i, text:(el.innerText||el.value||"").trim(), type:el.type
-})));
-const loginButton = buttons.find(b => /login|log in|sign in|submit/i.test(b.text));
-if (loginButton) {
-await page.evaluate((i) => {
-const els=[...document.querySelectorAll("button,input[type=submit]")];
-els[i]?.click();
-}, loginButton.i);
-} else {
-await page.locator("input[type=password]").press("Enter");
-}
-await page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 15000 }).catch(() => {});
-await new Promise(r => setTimeout(r, 1500));
-}
-
-async function diagnostic(env) {
-if (!env.SMARTFLOW_USERNAME || !env.SMARTFLOW_PASSWORD) {
-throw new Error("Set SMARTFLOW_USERNAME and SMARTFLOW_PASSWORD as Cloudflare secrets first.");
-}
-const browser = await puppeteer.launch(env.BROWSER, {
-guardrails: { allowedDomains: ["celllilo.smartflowsystems.net", "*.smartflowsystems.net"] }
-});
-try {
-const page = await browser.newPage();
-await smartflowLogin(page, env);
-const result = await page.evaluate(() => ({
-url: location.href,
-title: document.title,
-text: document.body?.innerText?.slice(0, 7000) || "",
-links: [...document.querySelectorAll("a")].slice(0, 80).map(a => ({
-text:(a.innerText||"").trim(),
-href:a.href
-})).filter(x => x.text || x.href),
-buttons: [...document.querySelectorAll("button,input[type=submit]")].map(x => ({
-text:(x.innerText||x.value||"").trim()
-}))
-}));
-return result;
-} finally {
-await browser.close();
-}
-}
-
-async function checkClient(env, name, phone) {
-// V1 intentionally stops after the connection/login test.
-// Once the diagnostic response identifies the real Report URL and fields,
-// this function will be completed with the exact SmartFlow search workflow.
-throw new Error("SmartFlow connection is ready, but the Report page selectors have not been mapped yet.");
+async function clearCustomers(env){
+ let cursor;
+ do{
+  const page=await env.BALANCES.list({prefix:DATA_PREFIX,cursor});
+  if(page.keys.length) await Promise.all(page.keys.map(k=>env.BALANCES.delete(k.name)));
+  cursor=page.list_complete?undefined:page.cursor;
+ }while(cursor);
 }
 
 export default {
-async fetch(request, env) {
-const url = new URL(request.url);
-if (request.method === "GET" && url.pathname === "/") {
-return new Response(HTML, { headers: { "content-type": "text/html; charset=utf-8" } });
-}
-if (request.method === "GET" && url.pathname === "/api/health") {
-return json({ ok: true, project: "cellix-smartflow-balance", version: "1.0.0" });
-}
-if (request.method === "GET" && url.pathname === "/api/config-check") {
-// Safe diagnostic: exposes only whether the three bindings exist.
-// It never returns their values.
-return json({
-smartflowUsername: !!env.SMARTFLOW_USERNAME,
-smartflowPassword: !!env.SMARTFLOW_PASSWORD,
-adminTestToken: !!env.ADMIN_TEST_TOKEN,
-browserBinding: !!env.BROWSER
-});
-}
-if (request.method === "GET" && url.pathname === "/admin/diagnostic") {
-// For this first mobile-friendly test, allow the admin token either
-// as a header or as a query parameter. The token is never logged.
-const suppliedToken = request.headers.get("x-admin-token") || url.searchParams.get("token");
-if (!env.ADMIN_TEST_TOKEN || suppliedToken !== env.ADMIN_TEST_TOKEN) {
-return json({ error: "Unauthorized" }, 401);
-}
-try {
-return json(await diagnostic(env));
-} catch (e) {
-return json({ error: e?.message || String(e) }, 500);
-}
-}
-if (request.method === "POST" && url.pathname === "/api/check") {
-try {
-const body = await request.json();
-const name = String(body?.name || "").trim();
-const phone = String(body?.phone || "").trim();
-if (!name || !phone) return json({ error: "Name and phone are required." }, 400);
-const data = await checkClient(env, name, phone);
-return json(data);
-} catch (e) {
-return json({ error: e?.message || String(e) }, 500);
-}
-}
-return new Response("Not found", { status: 404 });
-}
+ async fetch(request,env){
+  const url=new URL(request.url);
+
+  if(request.method==="GET" && url.pathname==="/"){
+   return new Response(`<meta http-equiv="refresh" content="0;url=/admin/upload">`,{headers:{"content-type":"text/html;charset=UTF-8"}});
+  }
+
+  if(request.method==="GET" && url.pathname==="/admin/upload"){
+   return new Response(ADMIN,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
+  }
+
+  if(request.method==="GET" && url.pathname.startsWith("/c/")){
+   return new Response(PAGE,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
+  }
+
+  if(request.method==="GET" && url.pathname.startsWith("/api/customer/")){
+   const token=decodeURIComponent(url.pathname.slice("/api/customer/".length));
+   if(!token) return json({ok:false,error:"Invalid link"},400);
+   const raw=await env.BALANCES.get(DATA_PREFIX+token);
+   if(!raw) return json({ok:false,error:"Customer link not found"},404);
+   try{return json({ok:true,customer:JSON.parse(raw)});}catch{return json({ok:false,error:"Stored data is invalid"},500);}
+  }
+
+  if(request.method==="POST" && url.pathname==="/api/upload"){
+   if(!env.BALANCES) return json({ok:false,error:"BALANCES KV binding is missing."},500);
+   const supplied=request.headers.get("x-admin-token")||"";
+   if(!env.ADMIN_TEST_TOKEN || supplied!==env.ADMIN_TEST_TOKEN) return json({ok:false,error:"Unauthorized"},401);
+   let body;
+   try{body=await request.json();}catch{return json({ok:false,error:"Invalid JSON"},400);}
+   if(!Array.isArray(body.clients)||!body.clients.length) return json({ok:false,error:"No customer data received."},400);
+
+   const clients=body.clients.map(c=>({
+    name:String(c.name??"").trim(),
+    phone:String(c.phone??"").trim(),
+    remaining:Number(c.remaining)||0
+   })).filter(c=>c.name||c.phone);
+
+   if(!clients.length) return json({ok:false,error:"No valid customer rows."},400);
+
+   await clearCustomers(env);
+
+   const links=[];
+   for(let i=0;i<clients.length;i+=50){
+    const chunk=clients.slice(i,i+50);
+    await Promise.all(chunk.map(async c=>{
+     const token=await tokenForPhone(normalizePhone(c.phone));
+     await env.BALANCES.put(DATA_PREFIX+token,JSON.stringify(c));
+     links.push({name:c.name,url:`${url.origin}/c/${token}`});
+    }));
+   }
+
+   await env.BALANCES.put(META_KEY,JSON.stringify({count:clients.length,updatedAt:new Date().toISOString()}));
+   return json({ok:true,count:clients.length,links});
+  }
+
+  if(request.method==="GET" && url.pathname==="/api/health"){
+   return json({ok:true,storage:!!env.BALANCES});
+  }
+
+  return new Response("Not found",{status:404});
+ }
 };
