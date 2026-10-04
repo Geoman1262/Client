@@ -221,6 +221,91 @@ async function smartflowLoginTest(request, env) {
   }
 }
 
+
+async function smartflowReportDiscovery(request, env) {
+  if (!tokenOK(request, env)) return json({ error: "Unauthorized" }, 401);
+  if (!env.SMARTFLOW_USERNAME || !env.SMARTFLOW_PASSWORD || !env.BROWSER) {
+    return json({ error: "Required runtime bindings are missing" }, 500);
+  }
+
+  try {
+    return await withBrowser(env, async (browser, context, launched) => {
+      const page = await context.newPage();
+      await page.goto(SMARTFLOW_LOGIN, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await new Promise((r) => setTimeout(r, 1000));
+
+      const login = await page.evaluate(() => {
+        const visible = (el) => {
+          const s = getComputedStyle(el);
+          return s.display !== "none" && s.visibility !== "hidden" && el.offsetParent !== null;
+        };
+        const password = [...document.querySelectorAll('input[type="password"]')].find(visible);
+        const textInputs = [...document.querySelectorAll('input')].filter((el) => visible(el) && el !== password);
+        const user = textInputs.find((el) => /user|login|account|name|email|contact/i.test(`${el.name} ${el.id} ${el.placeholder}`)) || textInputs[0];
+        return {
+          user: user ? { id:user.id, name:user.name, type:user.type } : null,
+          password: password ? { id:password.id, name:password.name, type:password.type } : null
+        };
+      });
+      if (!login.user || !login.password) return json({ ok:false, stage:"locate-login-fields", ...login }, 422);
+
+      const inputs = await page.$$("input");
+      const findInput = async (meta) => {
+        for (const h of inputs) {
+          const v = await h.evaluate(el => ({id:el.id||"", name:el.name||""}));
+          if ((meta.id && v.id === meta.id) || (!meta.id && meta.name && v.name === meta.name)) return h;
+        }
+        return null;
+      };
+      const uh = await findInput(login.user), ph = await findInput(login.password);
+      if (!uh || !ph) return json({ok:false, stage:"resolve-login-fields"},422);
+      await uh.evaluate((el,v)=>{el.value=v;el.dispatchEvent(new Event("input",{bubbles:true}));el.dispatchEvent(new Event("change",{bubbles:true}))},env.SMARTFLOW_USERNAME);
+      await ph.evaluate((el,v)=>{el.value=v;el.dispatchEvent(new Event("input",{bubbles:true}));el.dispatchEvent(new Event("change",{bubbles:true}))},env.SMARTFLOW_PASSWORD);
+      const submit = await page.$('button[type="submit"],input[type="submit"],button,input[type="button"]');
+      if (!submit) return json({ok:false,stage:"locate-login-button"},422);
+      await submit.click();
+      await page.waitForNavigation({waitUntil:"domcontentloaded",timeout:15000}).catch(()=>{});
+      await new Promise(r=>setTimeout(r,1200));
+
+      const before = await page.evaluate(() => ({
+        url:location.href,
+        title:document.title,
+        candidates:[...document.querySelectorAll('a,button,input[type="button"],input[type="submit"],[onclick]')].map((el,i)=>({
+          i,tag:el.tagName,text:(el.innerText||el.value||el.getAttribute('title')||'').trim(),id:el.id||'',name:el.name||'',href:el.href||'',onclick:el.getAttribute('onclick')||''
+        })).filter(x=>/report/i.test(`${x.text} ${x.id} ${x.name} ${x.href} ${x.onclick}`)).slice(0,50)
+      }));
+
+      let clicked = null;
+      const handles = await page.$$('a,button,input[type="button"],input[type="submit"],[onclick]');
+      for (const h of handles) {
+        const meta = await h.evaluate(el=>({text:(el.innerText||el.value||el.getAttribute('title')||'').trim(),href:el.href||'',onclick:el.getAttribute('onclick')||'',id:el.id||''}));
+        if (/^report$/i.test(meta.text) || (/report/i.test(meta.text) && !/all services/i.test(meta.text))) {
+          clicked = meta;
+          try { await h.click(); } catch (_) {}
+          break;
+        }
+      }
+      for (const h of handles) { try { await h.dispose(); } catch (_) {} }
+      await new Promise(r=>setTimeout(r,1500));
+
+      const after = await page.evaluate(() => ({
+        url:location.href,
+        title:document.title,
+        text:(document.body?.innerText||'').slice(0,16000),
+        inputs:[...document.querySelectorAll('input,select,textarea,button')].slice(0,150).map((el,i)=>({
+          i,tag:el.tagName,type:el.type||'',id:el.id||'',name:el.name||'',placeholder:el.placeholder||'',value:el.type==='password'?'':el.value||'',text:(el.innerText||el.value||'').trim()
+        })),
+        forms:[...document.forms].map((f,i)=>({i,id:f.id||'',name:f.name||'',action:f.action||'',method:f.method||''})),
+        tables:[...document.querySelectorAll('table')].slice(0,20).map((t,i)=>({i,headers:[...t.querySelectorAll('th')].map(x=>x.innerText.trim()),rows:[...t.querySelectorAll('tr')].slice(0,8).map(r=>[...r.querySelectorAll('th,td')].map(c=>c.innerText.trim()))}))
+      }));
+
+      return json({ok:true,stage:"report-discovery",launched,sessionId:browser.sessionId(),before,clicked,after});
+    });
+  } catch(e) {
+    return json({ok:false,error:String(e?.message||e)},502);
+  }
+}
+
 const APP = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cellix – Check Your Balance</title>
 <style>
@@ -246,6 +331,20 @@ export default {
 
     if (url.pathname === "/admin/diagnostic") return diagnostic(request, env);
     if (url.pathname === "/admin/smartflow-login-test") return smartflowLoginTest(request, env);
+    if (url.pathname === "/admin/report-discovery") {
+      if (request.method === "GET" && !tokenOK(request, env)) {
+        return new Response(`<!doctype html><html><body style="font-family:Arial;padding:30px"><h2>SmartFlow Report Discovery</h2><p>Enter your admin test token.</p><form method="POST"><input name="token" type="password" style="padding:12px;width:280px"/><button style="padding:12px;margin-left:8px">Run Discovery</button></form></body></html>`, {headers:{"content-type":"text/html;charset=UTF-8"}});
+      }
+      if (request.method === "POST" && !tokenOK(request, env)) {
+        const form = await request.formData().catch(()=>null);
+        const supplied = form?.get("token");
+        if (!supplied || supplied !== env.ADMIN_TEST_TOKEN) return json({error:"Unauthorized"},401);
+        const headers = new Headers(request.headers);
+        headers.set("x-admin-token", supplied);
+        request = new Request(request.url, {method:"GET", headers});
+      }
+      return smartflowReportDiscovery(request, env);
+    }
 
     if (url.pathname === "/api/check" && request.method === "POST") {
       // The public lookup is intentionally not enabled yet until SmartFlow's
