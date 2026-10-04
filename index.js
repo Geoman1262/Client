@@ -115,6 +115,7 @@ const ADMIN = `<!doctype html>
 <div class="panel"><h2 style="margin-top:0">Customers</h2><div class="searchrow"><input id="search" placeholder="Search by name or phone..."><select id="filter"><option value="all">All Customers</option><option value="outstanding">Outstanding Only</option><option value="paid">Paid Only</option><option value="missing">Not in Latest Excel</option></select></div><div class="tablewrap"><table><thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>Balance</th><th>Status</th><th>Private Link</th><th>WhatsApp</th></tr></thead><tbody id="customersBody"></tbody></table></div></div>
 <div class="panel history"><h2 style="margin-top:0">Recent Changes</h2><div class="hint" style="margin-bottom:10px">Changes from the latest uploads are kept in the system.</div><div class="tablewrap"><table><thead><tr><th>Customer</th><th>Previous</th><th>New</th><th>Difference</th><th>Change</th><th>Time</th></tr></thead><tbody id="historyBody"></tbody></table></div></div>
 </div></div>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);let state={clients:[],history:[]};
 function money(n){return new Intl.NumberFormat("en-US").format(Number(n)||0)+" LBP"}
