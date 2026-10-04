@@ -191,7 +191,10 @@ export default {
     }
 
     if (request.method === "GET" && url.pathname === "/admin/diagnostic") {
-      if (!env.ADMIN_TEST_TOKEN || request.headers.get("x-admin-token") !== env.ADMIN_TEST_TOKEN) {
+      // For this first mobile-friendly test, allow the admin token either
+      // as a header or as a query parameter. The token is never logged.
+      const suppliedToken = request.headers.get("x-admin-token") || url.searchParams.get("token");
+      if (!env.ADMIN_TEST_TOKEN || suppliedToken !== env.ADMIN_TEST_TOKEN) {
         return json({ error: "Unauthorized" }, 401);
       }
       try {

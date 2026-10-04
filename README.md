@@ -31,3 +31,10 @@ After deployment, the diagnostic endpoint is:
 Send the `x-admin-token` header with the value of ADMIN_TEST_TOKEN.
 
 The customer lookup remains intentionally unconnected to guessed SmartFlow selectors until the diagnostic identifies the real Report page.
+
+
+MOBILE TEST
+After deployment, you can open:
+    /admin/diagnostic?token=YOUR_ADMIN_TEST_TOKEN
+
+The token is only for this temporary diagnostic test. Do not post the URL or token publicly.
