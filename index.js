@@ -175,6 +175,7 @@ $("token").addEventListener("change",()=>{if(adminToken())loadDashboard()});
 
 // Upload is handled by the native HTML form above.
 window.addEventListener('message',e=>{if(!e.data||e.data.type!=='cellix-upload')return;const msg=document.getElementById('uploadMsg');if(msg)msg.textContent='✓ Upload successful. '+e.data.count+' customers updated.';loadDashboard();});
+$('uploadResult').addEventListener('load',()=>{try{const doc=$('uploadResult').contentDocument;if(doc&&/Upload successful/i.test(doc.body?.textContent||'')){const msg=$('uploadMsg');if(msg)msg.textContent='✓ Upload successful. '+(doc.body.textContent.match(/\d+/)?.[0]||'')+' customers updated.';loadDashboard();}}catch(e){}});
 
 </script></body></html>`;
 
