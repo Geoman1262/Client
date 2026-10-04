@@ -103,32 +103,50 @@ const PRIVATE_PAGE = `<!doctype html><html lang="en"><head><meta charset="UTF-8"
 const ADMIN = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cellix Admin — Upload Excel</title>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" onload="window.sheetLoaded=true" onerror="window.sheetLoaded=false"></script>
 <style>
-body{font-family:Arial;background:#f4f7fb;margin:0;padding:24px;color:#172033}.box{max-width:520px;margin:30px auto;background:#fff;padding:26px;border-radius:22px;box-shadow:0 10px 35px #0001}h1{color:#1677ff}input,button{width:100%;height:50px;margin:8px 0;border-radius:10px;border:1px solid #ccd4df;padding:0 12px;box-sizing:border-box}button{background:#1677ff;color:#fff;font-weight:700;border:0}#msg{margin-top:14px;font-size:14px;white-space:pre-wrap}#links{margin-top:18px;font-size:13px}#links .row{padding:12px 0;border-top:1px solid #e6eaf0}#links a{color:#1677ff;word-break:break-all}</style>
-</head><body><div class="box"><h1>Cellix</h1><h2>Upload Customer Balances</h2>
-<p>Upload the new Excel file. It will replace the previous customer data.</p>
-<input id="token" type="password" placeholder="Admin token">
+body{font-family:Arial;background:#f4f7fb;margin:0;padding:24px;color:#172033}.box{max-width:520px;margin:30px auto;background:#fff;padding:26px;border-radius:22px;box-shadow:0 10px 35px #0001}h1{color:#1677ff}input,button{width:100%;height:50px;margin:8px 0;border-radius:10px;border:1px solid #ccd4df;padding:0 12px;box-sizing:border-box}button{background:#1677ff;color:#fff;font-weight:700;border:0}button:disabled{opacity:.6}#msg{margin-top:14px;font-size:14px;white-space:pre-wrap;line-height:1.5}#links{margin-top:18px;font-size:13px}#links .row{padding:12px 0;border-top:1px solid #e6eaf0}#links a{color:#1677ff;word-break:break-all}.ok{color:#16803c}.bad{color:#c62828}.hint{font-size:12px;color:#697386;margin-top:8px}
+</style></head><body><div class="box"><h1>Cellix</h1><h2>Upload Customer Balances</h2>
+<p>Upload the new Excel file. Existing private links are kept permanently.</p>
+<input id="token" type="password" placeholder="Admin token" autocomplete="off">
 <input id="file" type="file" accept=".xlsx,.xls,.csv">
-<button id="upload">Upload & Replace Data</button><div id="msg"></div><div id="links"></div></div>
+<div id="fileInfo" class="hint">No file selected.</div>
+<button id="upload" type="button">Upload & Replace Data</button><div id="msg"></div><div id="links"></div></div>
 <script>
-document.getElementById("upload").onclick=async()=>{
- const token=document.getElementById("token").value;
- const f=document.getElementById("file").files[0], msg=document.getElementById("msg");
- if(!token||!f){msg.textContent="Enter the token and select an Excel file.";return;}
- msg.textContent="Reading Excel...";
+const uploadBtn=document.getElementById("upload");
+const msg=document.getElementById("msg");
+const fileInput=document.getElementById("file");
+const fileInfo=document.getElementById("fileInfo");
+fileInput.addEventListener("change",()=>{const f=fileInput.files[0];fileInfo.textContent=f?"Selected: "+f.name+" ("+Math.round(f.size/1024)+" KB)":"No file selected.";});
+function show(text,cls=""){msg.className=cls;msg.textContent=text;}
+async function readError(r){
+ try{const d=await r.json();return d.error||d.message||("HTTP "+r.status);}catch{const t=await r.text();return t||("HTTP "+r.status);}
+}
+uploadBtn.onclick=async()=>{
+ const token=document.getElementById("token").value.trim();
+ const f=fileInput.files[0];
+ document.getElementById("links").innerHTML="";
+ if(!token){show("Error: Please enter the admin token.","bad");return;}
+ if(!f){show("Error: Please select the Excel file.","bad");return;}
+ if(typeof XLSX==="undefined"){
+   show("Error: Excel reader did not load. Check your internet connection and try again.","bad");
+   return;
+ }
+ uploadBtn.disabled=true;
+ show("Reading Excel...");
  try{
   const buf=await f.arrayBuffer();
   const wb=XLSX.read(buf,{type:"array"});
+  if(!wb.SheetNames.length)throw new Error("The Excel file has no sheets.");
   const ws=wb.Sheets[wb.SheetNames[0]];
   const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
-  if(!rows.length) throw new Error("The Excel file is empty.");
+  if(!rows.length)throw new Error("The Excel file is empty.");
   const header=rows[0].map(v=>String(v).trim().toLowerCase());
   const find=(...names)=>{for(const n of names){const i=header.indexOf(n.toLowerCase());if(i>=0)return i;}return -1;};
   const nameI=find("name","client name","customer name");
   const phoneI=find("contact number","phone","phone number","contact");
   const remI=find("remaining balance","remaining","balance due","amount due");
-  if(nameI<0||phoneI<0||remI<0) throw new Error("Required columns not found. Need: Name, Contact Number, Remaining Balance.");
+  if(nameI<0||phoneI<0||remI<0)throw new Error("Required columns not found. Need: Name, Contact Number, Remaining Balance.");
   const clients=[];
   for(let i=1;i<rows.length;i++){
    const name=String(rows[i][nameI]??"").trim();
@@ -139,12 +157,20 @@ document.getElementById("upload").onclick=async()=>{
     clients.push({name,phone,remaining});
    }
   }
-  if(!clients.length) throw new Error("No customer rows found.");
-  msg.textContent="Uploading "+clients.length+" customers...";
+  if(!clients.length)throw new Error("No customer rows found.");
+  show("Uploading "+clients.length+" customers...");
   const r=await fetch("/api/upload",{method:"POST",headers:{"content-type":"application/json","x-admin-token":token},body:JSON.stringify({clients})});
+  if(!r.ok){throw new Error(await readError(r));}
   const d=await r.json();
-  if(d.ok){msg.textContent="Success. "+d.count+" customers updated. "+d.totalCustomers+" customers permanently saved.";const links=document.getElementById("links");links.innerHTML="<h3>Private customer links</h3>"+(d.links||[]).map(x=>{const wa="https://wa.me/"+x.whatsapp+"?text="+encodeURIComponent("إدارة Cellix تشكركم على ثقتكم بنا،\\n\\nونشارككم رابطكم الخاص للاطلاع على رصيدكم الحالي:\\n\\nالرابط:\\n"+x.link+"\\n\\nنرجو منكم عدم مشاركة هذا الرابط مع أي شخص، حفاظاً على خصوصية معلومات حسابكم.\\n\\nكما نوصي بحفظ الرابط على هاتفكم من خلال تثبيت صفحة Cellix، وذلك باتباع الخطوات التالية:\\n\\n1- افتحوا الرابط باستخدام Google Chrome.\\n2- اضغطوا على ⋮ ثم اختاروا Install / تثبيت التطبيق إذا ظهر الخيار.\\n3- اضغطوا Install / تثبيت للتأكيد.\\n\\nلمزيد من التفاصيل أو المساعدة، يرجى التواصل مع إدارة Cellix حصراً على الرقم الخاص: 81024686");return \'<div class="row"><b>\'+x.name+\'</b> — \'+x.status+\'<br><a href="\'+x.link+\'" target="_blank">\'+x.link+\'</a> <a href="\'+wa+\'" target="_blank" style="display:inline-block;margin-left:8px;background:#1677ff;color:#fff;padding:7px 10px;border-radius:8px;text-decoration:none">WhatsApp</a></div>\'}).join("");
- }catch(e){msg.textContent="Error: "+e.message;}
+  if(!d.ok)throw new Error(d.error||d.message||"Upload failed.");
+  show("Success. "+d.count+" customers updated. "+d.totalCustomers+" customers permanently saved.","ok");
+  const links=document.getElementById("links");
+  links.innerHTML="<h3>Private customer links</h3>"+(d.links||[]).map(x=>{
+   const wa="https://wa.me/"+x.whatsapp+"?text="+encodeURIComponent("إدارة Cellix تشكركم على ثقتكم بنا،\\n\\nونشارككم رابطكم الخاص للاطلاع على رصيدكم الحالي:\\n\\nالرابط:\\n"+x.link+"\\n\\nنرجو منكم عدم مشاركة هذا الرابط مع أي شخص، حفاظاً على خصوصية معلومات حسابكم.\\n\\nكما نوصي بحفظ الرابط على هاتفكم من خلال تثبيت صفحة Cellix، وذلك باتباع الخطوات التالية:\\n\\n1- افتحوا الرابط باستخدام Google Chrome.\\n2- اضغطوا على ⋮ ثم اختاروا Install / تثبيت التطبيق إذا ظهر الخيار.\\n3- اضغطوا Install / تثبيت للتأكيد.\\n\\nلمزيد من التفاصيل أو المساعدة، يرجى التواصل مع إدارة Cellix حصراً على الرقم الخاص: 81024686");
+   return '<div class="row"><b>'+x.name+'</b> — '+x.status+'<br><a href="'+x.link+'" target="_blank">'+x.link+'</a> <a href="'+wa+'" target="_blank" style="display:inline-block;margin-left:8px;background:#1677ff;color:#fff;padding:7px 10px;border-radius:8px;text-decoration:none">WhatsApp</a></div>';
+  }).join("");
+ }catch(e){show("Error: "+(e?.message||String(e)),"bad");}
+ finally{uploadBtn.disabled=false;}
 };
 </script></body></html>`;
 
