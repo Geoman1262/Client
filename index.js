@@ -74,7 +74,33 @@ document.getElementById("check").onclick=async()=>{
 </script>
 </body></html>`;
 
-const PRIVATE_PAGE = `<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Cellix — My Balance</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 40px rgba(20,40,80,.10)}.logo{font-size:40px;font-weight:800;color:#1677ff}.sub{color:#697386;margin:7px 0 25px}.name{font-size:18px;font-weight:800}.amount{font-size:34px;font-weight:900;margin-top:10px}.label{font-size:13px;color:#687386;margin-top:22px}.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:28px}.err{background:#fff2f2;border:1px solid #f0cccc;color:#b42318;border-radius:14px;padding:16px;margin-top:18px}</style></head><body><main class="card"><div class="logo">Cellix</div><div class="sub">Your outstanding balance</div><div id="content">Checking your account...</div><div class="small">Cellix</div><script>(async()=>{const c=document.getElementById("content");try{const token=decodeURIComponent(location.pathname.split("/")[2]||"").trim();if(!token)throw new Error("Invalid private link.");const r=await fetch("/api/private?token="+encodeURIComponent(token),{cache:"no-store"});const d=await r.json();if(d.ok&&d.customer){c.innerHTML='<div class="name"></div><div class="label">Remaining balance</div><div class="amount"></div>';c.querySelector(".name").textContent=d.customer.name;c.querySelector(".amount").textContent=new Intl.NumberFormat("en-US").format(Number(d.customer.remaining)||0)+" LBP"}else{c.innerHTML='<div class="err"></div>';c.querySelector(".err").textContent=d.message||"This private link is invalid or no longer active."}}catch(e){c.innerHTML='<div class="err"></div>';c.querySelector(".err").textContent=e.message||"Unable to load your balance. Please try again."}})();</script></main></body></html>`;
+const PRIVATE_PAGE = `<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Cellix — My Balance</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.card{width:min(440px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 40px rgba(20,40,80,.10)}.logo{font-size:40px;font-weight:800;color:#1677ff}.sub{color:#697386;margin:7px 0 25px}.name{font-size:18px;font-weight:800}.checked{font-size:13px;color:#687386;margin-top:7px}.label{font-size:13px;color:#687386;margin-top:22px}.amount{font-size:34px;font-weight:900;margin-top:8px}.status{display:inline-block;margin-top:14px;padding:8px 12px;border-radius:999px;font-size:13px;font-weight:800}.paid{background:#eaf8ef;color:#167a3b}.due{background:#fff4e5;color:#9a5b00}.updated{font-size:12px;color:#8a93a2;margin-top:12px}.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:28px}.err{background:#fff2f2;border:1px solid #f0cccc;color:#b42318;border-radius:14px;padding:16px;margin-top:18px}</style></head><body><main class="card"><div class="logo">Cellix</div><div class="sub">Your outstanding balance</div><div id="content">Checking your account...</div><div class="small">Cellix</div><script>
+(async()=>{
+ const c=document.getElementById("content");
+ const checkedAt=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Beirut",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(new Date());
+ try{
+  const token=decodeURIComponent(location.pathname.split("/")[2]||"").trim();
+  if(!token)throw new Error("Invalid private link.");
+  const r=await fetch("/api/private?token="+encodeURIComponent(token),{cache:"no-store"});
+  const d=await r.json();
+  if(d.ok&&d.customer){
+   const amount=Number(d.customer.remaining)||0;
+   const paid=amount===0;
+   const updated=d.customer.updatedAt?new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Beirut",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(d.customer.updatedAt)):"Not available";
+   c.innerHTML='<div class="name"></div><div class="checked">Checked at: '+checkedAt+' • Lebanon Time (UTC+3)</div><div class="label">Remaining balance</div><div class="amount"></div><div class="status '+(paid?"paid":"due")+'"></div><div class="updated">Balance updated: '+updated+'</div>';
+   c.querySelector(".name").textContent=d.customer.name;
+   c.querySelector(".amount").textContent=new Intl.NumberFormat("en-US").format(amount)+" LBP";
+   c.querySelector(".status").textContent=paid?"✓ Account Paid":"Outstanding Balance";
+  }else{
+   c.innerHTML='<div class="err"></div>';
+   c.querySelector(".err").textContent=d.message||"This private link is invalid or no longer active.";
+  }
+ }catch(e){
+  c.innerHTML='<div class="err"></div>';
+  c.querySelector(".err").textContent=e.message||"Unable to load your balance. Please try again.";
+ }
+})();
+</script></main></body></html>`;
 const ADMIN = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cellix Admin — Upload Excel</title>
@@ -149,7 +175,7 @@ export default {
    let clients=[];try{clients=JSON.parse(raw)}catch{return json({ok:false,message:"Stored data is invalid."},500);}
    const customer=clients.find(c=>String(c.token||"")===token);
    if(!customer)return json({ok:false,message:"This private link is invalid or no longer active."},404);
-   return json({ok:true,customer:{name:customer.name,remaining:Number(customer.remaining)||0,status:customer.status||"active"}});
+   return json({ok:true,customer:{name:customer.name,remaining:Number(customer.remaining)||0,status:customer.status||"active",updatedAt:customer.updatedAt||null}});
   }
 
   if(url.pathname==="/api/check"){
@@ -181,10 +207,10 @@ export default {
     for(const c of incoming){
       const key=normalizePhone(c.phone)||normalizeName(c.name);if(!key)continue;seen.add(key);
       const existing=byKey.get(key);
-      const customer={name:c.name||existing?.name||"",phone:c.phone||existing?.phone||"",remaining:c.remaining,token:existing?.token||makeToken(),status:c.remaining===0?"zero_balance":"active"};
+      const customer={name:c.name||existing?.name||"",phone:c.phone||existing?.phone||"",remaining:c.remaining,token:existing?.token||makeToken(),status:c.remaining===0?"zero_balance":"active",updatedAt:new Date().toISOString()};
       byKey.set(key,customer);updated.push(customer);
     }
-    for(const c of allCustomers){const key=normalizePhone(c.phone)||normalizeName(c.name);if(key&&!seen.has(key))byKey.set(key,{...c,remaining:0,status:"not_in_latest"});}
+    for(const c of allCustomers){const key=normalizePhone(c.phone)||normalizeName(c.name);if(key&&!seen.has(key))byKey.set(key,{...c,status:"not_in_latest"});}
     const clients=Array.from(byKey.values());
     await env.BALANCES.put(DATA_KEY,JSON.stringify(clients));
     await env.BALANCES.put("meta",JSON.stringify({count:clients.length,latestCount:updated.length,updatedAt:new Date().toISOString()}));
