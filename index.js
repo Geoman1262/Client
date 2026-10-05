@@ -68,8 +68,6 @@ function whatsappMessage(link){return `إدارة Cellix تشكركم على ث�
 3- اضغطوا Install / تثبيت للتأكيد.
 
 لمزيد من التفاصيل أو المساعدة، يرجى التواصل مع إدارة Cellix حصراً على الرقم الخاص: 81024686`}
-async function clearCustomers(env){let cursor;do{const page=await env.BALANCES.list({prefix:DATA_PREFIX,cursor});if(page.keys.length)await Promise.all(page.keys.map(k=>env.BALANCES.delete(k.name)));cursor=page.list_complete?undefined:page.cursor}while(cursor)}
-
 export default{async fetch(request,env){const url=new URL(request.url);
 if(request.method==="GET"&&url.pathname==="/")return new Response(`<meta http-equiv="refresh" content="0;url=/admin/upload">`,{headers:{"content-type":"text/html;charset=UTF-8"}});
 if(request.method==="GET"&&url.pathname==="/admin/upload")return new Response(ADMIN,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
@@ -82,9 +80,33 @@ const previous=[];let prevCursor;do{const page=await env.BALANCES.list({prefix:D
 const oldByPhone=new Map();for(const item of previous){const p=normalizePhone(item.customer.phone);if(p)oldByPhone.set(p,item)}
 const currentPhones=new Set();for(const c of clients){const p=normalizePhone(c.phone);if(p)currentPhones.add(p)}
 const merged=[];const now=new Date().toISOString();
-for(const c of clients){const old=oldByPhone.get(normalizePhone(c.phone));const name=c.name||old?.customer?.name||"Customer";const phone=c.phone||old?.customer?.phone||"";const token=old?.customer?.token||await tokenForCustomer(phone,name);merged.push({name,phone,remaining:c.remaining,token,updatedAt:now,isClosed:false})}
-for(const item of previous){const old=item.customer,p=normalizePhone(old.phone);if(p&&currentPhones.has(p))continue;const name=old.name||"Customer",phone=old.phone||"",token=old.token||await tokenForCustomer(phone,name);merged.push({name,phone,remaining:0,token,updatedAt:now,isClosed:true})}
-await clearCustomers(env);const links=[];for(let i=0;i<merged.length;i+=50){await Promise.all(merged.slice(i,i+50).map(async c=>{const link=`${url.origin}/c/${c.token}`,customer={name:c.name,phone:c.phone,remaining:c.remaining,updatedAt:c.updatedAt,isClosed:c.isClosed},wa=`https://wa.me/${whatsappPhone(c.phone)}?text=${encodeURIComponent(whatsappMessage(link))}`;await env.BALANCES.put(DATA_PREFIX+c.token,JSON.stringify(customer));links.push({name:c.name,phone:c.phone,url:link,whatsapp:wa,isClosed:c.isClosed})}))}
-await env.BALANCES.put(META_KEY,JSON.stringify({count:merged.length,activeCount:clients.length,closedCount:merged.length-clients.length,updatedAt:now}));return json({ok:true,count:merged.length,activeCount:clients.length,closedCount:merged.length-clients.length,links})}
+// Keep the original token forever. A customer's private link must NOT change when the Excel file changes.
+for(const c of clients){
+  const p=normalizePhone(c.phone);
+  const old=oldByPhone.get(p);
+  const name=c.name||old?.customer?.name||"Customer";
+  const phone=c.phone||old?.customer?.phone||"";
+  const token=old?.customer?.token||await tokenForCustomer(phone,name);
+  merged.push({name,phone,remaining:c.remaining,token,updatedAt:now,isClosed:false});
+}
+// Customers missing from the new Excel are closed accounts: keep their old record/link and set balance to 0.
+for(const item of previous){
+  const old=item.customer,p=normalizePhone(old.phone);
+  if(p&&currentPhones.has(p))continue;
+  const name=old.name||"Customer",phone=old.phone||"",token=old.token||await tokenForCustomer(phone,name);
+  merged.push({name,phone,remaining:0,token,updatedAt:now,isClosed:true});
+}
+const links=[];
+for(let i=0;i<merged.length;i+=50){
+  await Promise.all(merged.slice(i,i+50).map(async c=>{
+    const link=`${url.origin}/c/${c.token}`;
+    const customer={name:c.name,phone:c.phone,remaining:c.remaining,token:c.token,updatedAt:c.updatedAt,isClosed:c.isClosed};
+    const wa=`https://wa.me/${whatsappPhone(c.phone)}?text=${encodeURIComponent(whatsappMessage(link))}`;
+    await env.BALANCES.put(DATA_PREFIX+c.token,JSON.stringify(customer));
+    links.push({name:c.name,phone:c.phone,url:link,whatsapp:wa,isClosed:c.isClosed});
+  }));
+}
+await env.BALANCES.put(META_KEY,JSON.stringify({count:merged.length,activeCount:clients.length,closedCount:merged.length-clients.length,updatedAt:now}));
+return json({ok:true,count:merged.length,activeCount:clients.length,closedCount:merged.length-clients.length,links})}
 if(request.method==="GET"&&url.pathname==="/api/health")return json({ok:true,storage:!!env.BALANCES});
 return new Response("Not found",{status:404})}};
