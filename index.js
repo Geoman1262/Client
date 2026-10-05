@@ -1,4 +1,5 @@
 const DATA_KEY = "clients";
+const BUILD = "CELLIX_TEST_DIRECT_UPLOAD_V9";
 
 const PAGE = `<!doctype html>
 <html lang="en">
@@ -106,7 +107,7 @@ const ADMIN = `<!doctype html>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033}.box{max-width:650px;margin:35px auto;background:#fff;padding:28px;border-radius:22px;box-shadow:0 10px 35px #17325d12}h1{color:#1677ff;margin:0 0 8px}.sub{color:#697386;margin-bottom:24px}.field{margin:14px 0}.field label{display:block;font-weight:800;font-size:14px;margin-bottom:8px}input[type=password],input[type=file]{width:100%;height:50px;border:1px solid #ccd6e2;border-radius:11px;padding:0 12px;background:#fff}input[type=file]{padding:13px 10px;height:auto}button{width:100%;height:52px;border:0;border-radius:12px;background:#1677ff;color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-top:8px}.note{font-size:12px;color:#697386;margin-top:12px;line-height:1.5}.success{margin-top:18px;padding:16px;border-radius:14px;background:#eef8f1;color:#167a3b}.error{margin-top:18px;padding:16px;border-radius:14px;background:#fff0f0;color:#b42318}.back{display:inline-block;margin-top:14px;text-decoration:none;color:#1677ff;font-weight:700}
 </style></head><body><div class="box">
-<h1>Cellix</h1><h2>Upload Customer Balances</h2><div class="sub">Direct upload — no browser JavaScript is required.</div>
+<h1>Cellix</h1><h2>Upload Customer Balances</h2><div class="sub">Direct upload V9 — no browser JavaScript is required.</div>
 <form action="/api/upload?html=1" method="post" enctype="multipart/form-data">
 <div class="field"><label for="token">Admin token</label><input id="token" name="token" type="password" required autocomplete="off"></div>
 <div class="field"><label for="file">Choose Excel File</label><input id="file" name="file" type="file" accept=".xlsx,.xls,.csv" required></div>
@@ -116,13 +117,18 @@ const ADMIN = `<!doctype html>
 </div></body></html>`;
 
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json;charset=UTF-8","cache-control":"no-store"}});}
+function xmlTextServer(bytes){return new TextDecoder("utf-8").decode(bytes)}
+function xmlDecodeServer(s){return String(s??"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&")}
+function xmlAttrServer(tag,name){const re=new RegExp("\\b"+name.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\$&")+"\\s*=\\s*([\\\"'])([\\s\\S]*?)\\1","i");const m=String(tag||"").match(re);return m?xmlDecodeServer(m[2]):""}
+function xmlTextContentServer(fragment){return xmlDecodeServer(String(fragment??"").replace(/<[^>]*>/g,""))}
+function xmlBlocksServer(xml,tag){const re=new RegExp("<(?:(?:[A-Za-z_][\\w.-]*):)?"+tag+"\\b[^>]*>[\\s\\S]*?<\\/(?:(?:[A-Za-z_][\\w.-]*):)?"+tag+">","gi");return String(xml||"").match(re)||[]}
+function xmlInnerServer(block,tag){const re=new RegExp("<(?:(?:[A-Za-z_][\\w.-]*):)?"+tag+"\\b[^>]*>([\\s\\S]*?)<\\/(?:(?:[A-Za-z_][\\w.-]*):)?"+tag+">","i");const m=String(block||"").match(re);return m?m[1]:""}
 async function inflateRawServer(data){
  if(typeof DecompressionStream==="undefined")throw new Error("Server cannot decompress XLSX files.");
  const ds=new DecompressionStream("deflate-raw");
  return new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(ds)).arrayBuffer());
 }
-function xmlTextServer(bytes){return new TextDecoder("utf-8").decode(bytes)}
-function firstTextServer(el){return el?el.textContent||"":""}
+function xmlTagsServer(xml,tag){const re=new RegExp("<(?:(?:[A-Za-z_][\\w.-]*):)?"+tag+"\\b[^>]*\\/?\\>","gi");return String(xml||"").match(re)||[]}
 async function unzipXlsxServer(buf){
  const a=new Uint8Array(buf),dv=new DataView(buf),u16=p=>dv.getUint16(p,true),u32=p=>dv.getUint32(p,true);
  let eocd=-1;for(let p=a.length-22;p>=Math.max(0,a.length-65557);p--){if(u32(p)===0x06054b50){eocd=p;break}}
@@ -144,15 +150,28 @@ async function readXlsxServer(file){
   const text=await file.text();return text.split(/\r?\n/).filter(x=>x.trim()!=="").map(line=>{let out=[],cur="",q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;continue}if(ch==='"'){q=!q;continue}if(ch===','&&!q){out.push(cur);cur=""}else cur+=ch}out.push(cur);return out});
  }
  const entries=await unzipXlsxServer(await file.arrayBuffer());
- const wb=new DOMParser().parseFromString(xmlTextServer(entries["xl/workbook.xml"]),"application/xml");
- const rels=new DOMParser().parseFromString(xmlTextServer(entries["xl/_rels/workbook.xml.rels"]),"application/xml");
- const sheet=wb.getElementsByTagNameNS("*","sheet")[0];if(!sheet)throw new Error("The Excel file has no sheets.");
- const rid=sheet.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id")||sheet.getAttribute("r:id");let target="";
- for(const r of rels.getElementsByTagNameNS("*","Relationship")){if(r.getAttribute("Id")===rid){target=r.getAttribute("Target")||"";break}}
+ const wb=xmlTextServer(entries["xl/workbook.xml"]||new Uint8Array());
+ if(!wb)throw new Error("Excel workbook.xml is missing.");
+ const sheetBlocks=xmlTagsServer(wb,"sheet");if(!sheetBlocks.length)throw new Error("The Excel file has no sheets.");
+ const sheet=sheetBlocks[0],rid=xmlAttrServer(sheet,"id");
+ const relXml=xmlTextServer(entries["xl/_rels/workbook.xml.rels"]||new Uint8Array());let target="";
+ for(const rel of xmlTagsServer(relXml,"Relationship")){if(xmlAttrServer(rel,"Id")===rid){target=xmlAttrServer(rel,"Target");break}}
  if(!target)target="worksheets/sheet1.xml";target=target.replace(/^\//,"");if(!target.startsWith("xl/"))target="xl/"+target.replace(/^xl\//,"");
- const shared=[];if(entries["xl/sharedStrings.xml"]){const sd=new DOMParser().parseFromString(xmlTextServer(entries["xl/sharedStrings.xml"]),"application/xml");for(const si of sd.getElementsByTagNameNS("*","si"))shared.push(firstTextServer(si));}
- const doc=new DOMParser().parseFromString(xmlTextServer(entries[target]),"application/xml"),rows=[];
- for(const row of doc.getElementsByTagNameNS("*","row")){const arr=[];for(const c of row.getElementsByTagNameNS("*","c")){const ref=c.getAttribute("r")||"A1",m=ref.match(/^([A-Z]+)(\\d+)$/i);if(!m)continue;let col=0;for(const ch of m[1].toUpperCase())col=col*26+ch.charCodeAt(0)-64;col--;const type=c.getAttribute("t")||"";let val="";if(type==="inlineStr"){val=firstTextServer(c.getElementsByTagNameNS("*","is")[0]);}else{const v=c.getElementsByTagNameNS("*","v")[0];val=firstTextServer(v);if(type==="s")val=shared[Number(val)]??"";else if(type==="b")val=val==="1"?"TRUE":"FALSE";}arr[col]=val;}rows[Number(row.getAttribute("r")||rows.length+1)-1]=arr;}
+ const shared=[];if(entries["xl/sharedStrings.xml"]){const sd=xmlTextServer(entries["xl/sharedStrings.xml"]);for(const si of xmlBlocksServer(sd,"si"))shared.push(xmlTextContentServer(si));}
+ const sheetXml=xmlTextServer(entries[target]||new Uint8Array());if(!sheetXml)throw new Error("Excel worksheet is missing.");
+ const rows=[];
+ for(const rowBlock of xmlBlocksServer(sheetXml,"row")){
+  const rowNo=Number(xmlAttrServer(rowBlock,"r"))||rows.length+1,arr=[];
+  for(const c of xmlBlocksServer(rowBlock,"c")){
+   const ref=xmlAttrServer(c,"r")||"A1",m=ref.match(/^([A-Z]+)(\d+)$/i);if(!m)continue;
+   let col=0;for(const ch of m[1].toUpperCase())col=col*26+ch.charCodeAt(0)-64;col--;
+   const type=xmlAttrServer(c,"t"),vBlock=xmlInnerServer(c,"v");let val="";
+   if(type==="inlineStr"){const is=xmlInnerServer(c,"is");val=xmlTextContentServer(is);}
+   else{val=xmlTextContentServer(vBlock);if(type==="s")val=shared[Number(val)]??"";else if(type==="b")val=val==="1"?"TRUE":"FALSE";}
+   arr[col]=val;
+  }
+  rows[rowNo-1]=arr;
+ }
  return rows;
 }
 function escapeHtml(v){return String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","":"&quot;"}[m]));}
@@ -221,7 +240,7 @@ export default {
    for(const c of allCustomers){if(!updated.some(u=>u.token===c.token)){const previous=Number(c.remaining)||0;if(previous!==0)changes.push({name:c.name,previous,current:0,diff:-previous,type:"Not in Latest Excel",at:now});c.remaining=0;c.status="not_in_latest";}}
    const historyRaw=await env.BALANCES.get("history");let history=[];if(historyRaw){try{history=JSON.parse(historyRaw)}catch{}}history=changes.concat(history).slice(0,1000);
    await env.BALANCES.put(DATA_KEY,JSON.stringify(allCustomers));await env.BALANCES.put("history",JSON.stringify(history));await env.BALANCES.put("meta",JSON.stringify({count:allCustomers.length,latestCount:updated.length,updatedAt:now}));
-   if(isHtml){const esc=escapeHtml;return new Response(`<html><body style="font-family:Arial;padding:30px"><div style="max-width:650px;margin:auto"><h2 style="color:#1677ff">Cellix Upload Result</h2><div style="padding:18px;border-radius:14px;background:#eef8f1;color:#167a3b"><b>UPLOAD: SUCCESS</b><br><br>Customers processed: ${updated.length}<br>Total customers stored: ${allCustomers.length}<br>Private links preserved.</div><a href="/admin/upload" style="display:inline-block;margin-top:18px">Upload another file</a></div></body></html>`,{status:200,headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});}
+   if(isHtml){const esc=escapeHtml;return new Response(`<html><body style="font-family:Arial;padding:30px"><div style="max-width:650px;margin:auto"><h2 style="color:#1677ff">Cellix Upload Result — V9</h2><div style="padding:18px;border-radius:14px;background:#eef8f1;color:#167a3b"><b>UPLOAD: SUCCESS</b><br><br>Customers processed: ${updated.length}<br>Total customers stored: ${allCustomers.length}<br>Private links preserved.</div><a href="/admin/upload" style="display:inline-block;margin-top:18px">Upload another file</a></div></body></html>`,{status:200,headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});}
    return json({ok:true,count:updated.length,totalCustomers:allCustomers.length});
   }
   if(url.pathname==="/api/health")return json({ok:true,storage:!!env.BALANCES});
