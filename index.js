@@ -115,9 +115,6 @@ const ADMIN = `<!doctype html>
 <div class="panel"><h2 style="margin-top:0">Customers</h2><div class="searchrow"><input id="search" placeholder="Search by name or phone..."><select id="filter"><option value="all">All Customers</option><option value="outstanding">Outstanding Only</option><option value="paid">Paid Only</option><option value="missing">Not in Latest Excel</option></select></div><div class="tablewrap"><table><thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>Balance</th><th>Status</th><th>Private Link</th><th>WhatsApp</th></tr></thead><tbody id="customersBody"></tbody></table></div></div>
 <div class="panel history"><h2 style="margin-top:0">Recent Changes</h2><div class="hint" style="margin-bottom:10px">Changes from the latest uploads are kept in the system.</div><div class="tablewrap"><table><thead><tr><th>Customer</th><th>Previous</th><th>New</th><th>Difference</th><th>Change</th><th>Time</th></tr></thead><tbody id="historyBody"></tbody></table></div></div>
 </div></div>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script>window.sheetLoaded=true;</script>
 <script>
 const $=id=>document.getElementById(id);let state={clients:[],history:[]};
 async function unzipEntries(buf){
@@ -144,13 +141,7 @@ async function inflateRaw(data){
 function xmlText(bytes){return new TextDecoder("utf-8").decode(bytes)}
 function firstText(el){return el?el.textContent||"":""}
 async function readXlsx(file){
- if(window.XLSX){
-  const wb=XLSX.read(await file.arrayBuffer(),{type:"array",raw:true});
-  if(!wb.SheetNames.length)throw new Error("The Excel file has no sheets.");
-  const ws=wb.Sheets[wb.SheetNames[0]];
-  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
-  if(rows.length)return rows;
- }
+ if(!file||!file.size)throw new Error("Selected file is empty.");
  if(/\.csv$/i.test(file.name)){
   const text=await file.text(); return text.split(/\r?\n/).filter(x=>x.trim()!=="").map(line=>{let out=[],cur="",q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;continue}if(ch==='"'){q=!q;continue}if(ch===','&&!q){out.push(cur);cur=""}else cur+=ch}out.push(cur);return out});
  }
@@ -181,7 +172,7 @@ $("historyBody").innerHTML=state.history.map(h=>'<tr><td><b>'+esc(h.name)+'</b><
 async function loadDashboard(){try{const d=await api("/api/dashboard");state=d;$("dashboard").classList.remove("hidden");$("lastUpdated").textContent=localTime(d.updatedAt);render();}catch(e){show("Dashboard: "+e.message,"bad");}}
 $("search").addEventListener("input",render);$("filter").addEventListener("change",render);
 $("token").addEventListener("change",()=>{if(adminToken())loadDashboard()});
-$("upload").onclick=async()=>{const f=$("file").files[0];if(!adminToken()){show("Error: Please enter the admin token.","bad");return}if(!f){show("Error: Please select the Excel file.","bad");return}$("upload").disabled=true;show("Reading Excel...");try{const rows=await readXlsx(f);if(!rows.length)throw new Error("The Excel file is empty.");const header=(rows[0]||[]).map(v=>String(v??"").trim().toLowerCase());const find=(...names)=>{for(const n of names){const i=header.indexOf(n.toLowerCase());if(i>=0)return i}return -1};const nameI=find("name","client name","customer name"),phoneI=find("contact number","phone","phone number","contact"),remI=find("remaining balance","remaining","balance due","amount due");if(nameI<0||phoneI<0||remI<0)throw new Error("Required columns not found. Need: Name, Contact Number, Remaining Balance.");const clients=[];for(let i=1;i<rows.length;i++){const name=String(rows[i]?.[nameI]??"").trim(),phone=String(rows[i]?.[phoneI]??"").trim();let remaining=rows[i]?.[remI]??0;if(name||phone){remaining=Number(String(remaining).replace(/,/g,"").replace(/[^0-9.-]/g,""))||0;clients.push({name,phone,remaining})}}if(!clients.length)throw new Error("No customer rows found.");show("Uploading "+clients.length+" customers...");const d=await api("/api/upload",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({clients})});show("Success. "+d.count+" customers updated. Private links preserved.","ok");await loadDashboard();$("file").value="";$("fileInfo").textContent="No file selected.";}catch(e){show("Error: "+(e.message||e),"bad")}finally{$("upload").disabled=false}};
+$("upload").onclick=async()=>{try{const f=$("file").files[0];if(!adminToken()){show("Error: Please enter the admin token.","bad");return}if(!f){show("Error: Please select the Excel file.","bad");return}$("upload").disabled=true;show("Reading Excel...");try{const rows=await readXlsx(f);if(!rows.length)throw new Error("The Excel file is empty.");const header=(rows[0]||[]).map(v=>String(v??"").trim().toLowerCase());const find=(...names)=>{for(const n of names){const i=header.indexOf(n.toLowerCase());if(i>=0)return i}return -1};const nameI=find("name","client name","customer name"),phoneI=find("contact number","phone","phone number","contact"),remI=find("remaining balance","remaining","balance due","amount due");if(nameI<0||phoneI<0||remI<0)throw new Error("Required columns not found. Need: Name, Contact Number, Remaining Balance.");const clients=[];for(let i=1;i<rows.length;i++){const name=String(rows[i]?.[nameI]??"").trim(),phone=String(rows[i]?.[phoneI]??"").trim();let remaining=rows[i]?.[remI]??0;if(name||phone){remaining=Number(String(remaining).replace(/,/g,"").replace(/[^0-9.-]/g,""))||0;clients.push({name,phone,remaining})}}if(!clients.length)throw new Error("No customer rows found.");show("Uploading "+clients.length+" customers...");const d=await api("/api/upload",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({clients})});show("Success. "+d.count+" customers updated. Private links preserved.","ok");await loadDashboard();$("file").value="";$("fileInfo").textContent="No file selected.";}catch(e){show("Error: "+(e.message||e),"bad")}finally{$("upload").disabled=false}}catch(e){show("Upload error: "+(e.message||e),"bad");$("upload").disabled=false}};
 </script></body></html>`;
 
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json;charset=UTF-8","cache-control":"no-store"}});}
