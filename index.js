@@ -26,7 +26,6 @@ button{width:100%;height:54px;border:0;border-radius:14px;background:#1677ff;col
 .err{color:#c62828;font-size:14px;margin-top:14px;display:none}
 .small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:22px}
 </style>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <main class="card">
@@ -147,21 +146,82 @@ async function inflateRaw(data){
 }
 function xmlText(bytes){return new TextDecoder("utf-8").decode(bytes)}
 function firstText(el){return el?el.textContent||"":""}
+async function unzipEntries(buf){
+ const a=new Uint8Array(buf), dv=new DataView(buf);
+ const u16=p=>dv.getUint16(p,true), u32=p=>dv.getUint32(p,true);
+ let eocd=-1;
+ for(let p=a.length-22;p>=Math.max(0,a.length-65557);p--){
+  if(u32(p)===0x06054b50){eocd=p;break;}
+ }
+ if(eocd<0) throw new Error("Invalid XLSX file. ZIP structure not found.");
+ const count=u16(eocd+10), cdOff=u32(eocd+16), out={};
+ let p=cdOff;
+ for(let i=0;i<count;i++){
+  if(u32(p)!==0x02014b50) throw new Error("Invalid XLSX ZIP directory.");
+  const method=u16(p+10), csize=u32(p+20), nlen=u16(p+28), xlen=u16(p+30), clen=u16(p+32), loff=u32(p+42);
+  const name=new TextDecoder().decode(a.slice(p+46,p+46+nlen));
+  if(u32(loff)!==0x04034b50) throw new Error("Invalid XLSX local file header.");
+  const lName=u16(loff+26), lExtra=u16(loff+28);
+  const data=a.slice(loff+30+lName+lExtra,loff+30+lName+lExtra+csize);
+  if(method===0) out[name]=data;
+  else if(method===8){
+   if(typeof DecompressionStream==="undefined") throw new Error("This browser cannot decompress XLSX files.");
+   const ds=new DecompressionStream("deflate-raw");
+   out[name]=new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(ds)).arrayBuffer());
+  } else throw new Error("Unsupported XLSX compression method: "+method);
+  p+=46+nlen+xlen+clen;
+ }
+ return out;
+}
+function xmlText(bytes){return new TextDecoder("utf-8").decode(bytes)}
+function firstText(el){return el?el.textContent||"":""}
+function colIndex(ref){const m=String(ref||"").match(/^([A-Z]+)\d+$/i);if(!m)return 0;let n=0;for(const ch of m[1].toUpperCase())n=n*26+ch.charCodeAt(0)-64;return n-1;}
 async function readXlsx(file){
- if(typeof XLSX==="undefined")throw new Error("Excel reader failed to load. Please refresh the page and try again.");
  if(/\.csv$/i.test(file.name)){
   const text=await file.text();
-  const wb=XLSX.read(text,{type:"string",raw:true});
-  const ws=wb.Sheets[wb.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
+  return text.split(/\r?\n/).filter(x=>x.trim()!=="").map(line=>{
+   const out=[];let cur="",q=false;
+   for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;continue;}if(ch==='"'){q=!q;continue;}if((ch===','||ch===';')&&!q){out.push(cur);cur="";}else cur+=ch;}out.push(cur);return out;
+  });
  }
- const buf=await file.arrayBuffer();
- let wb;
- try{wb=XLSX.read(buf,{type:"array",cellDates:false,raw:true});}
- catch(e){throw new Error("Could not read this Excel file. Make sure it is a valid .xlsx file.");}
- if(!wb.SheetNames.length)throw new Error("The Excel file has no sheets.");
- const ws=wb.Sheets[wb.SheetNames[0]];
- return XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
+ if(!/\.xlsx$/i.test(file.name)) throw new Error("Please select an .xlsx or .csv file.");
+ const entries=await unzipEntries(await file.arrayBuffer());
+ if(!entries["xl/workbook.xml"]) throw new Error("Invalid Excel file: workbook.xml is missing.");
+ const wb=new DOMParser().parseFromString(xmlText(entries["xl/workbook.xml"]),"application/xml");
+ const rels=new DOMParser().parseFromString(xmlText(entries["xl/_rels/workbook.xml.rels"]||new Uint8Array()),"application/xml");
+ const sheets=[...wb.getElementsByTagNameNS("*","sheet")];
+ if(!sheets.length) throw new Error("The Excel file has no worksheets.");
+ const sheet=sheets[0];
+ const rid=sheet.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id")||sheet.getAttribute("r:id");
+ let target="";
+ for(const r of rels.getElementsByTagNameNS("*","Relationship")) if(r.getAttribute("Id")===rid){target=r.getAttribute("Target")||"";break;}
+ if(!target) target="worksheets/sheet1.xml";
+ target=target.replace(/^\/+/,"");
+ if(target.startsWith("xl/")) target=target; else target="xl/"+target.replace(/^\.\//,"");
+ if(!entries[target]){
+  const alt=target.replace(/^xl\//,"");
+  if(entries[alt]) target=alt; else throw new Error("Excel worksheet could not be found.");
+ }
+ const shared=[];
+ if(entries["xl/sharedStrings.xml"]){
+  const sd=new DOMParser().parseFromString(xmlText(entries["xl/sharedStrings.xml"]),"application/xml");
+  for(const si of sd.getElementsByTagNameNS("*","si")) shared.push(firstText(si));
+ }
+ const doc=new DOMParser().parseFromString(xmlText(entries[target]),"application/xml");
+ const rows=[];
+ for(const row of doc.getElementsByTagNameNS("*","row")){
+  const arr=[];
+  for(const cell of row.getElementsByTagNameNS("*","c")){
+   const idx=colIndex(cell.getAttribute("r"));
+   const type=cell.getAttribute("t")||"";
+   let val="";
+   if(type==="inlineStr") val=firstText(cell.getElementsByTagNameNS("*","is")[0]);
+   else {const v=cell.getElementsByTagNameNS("*","v")[0];val=firstText(v);if(type==="s")val=shared[Number(val)]??"";else if(type==="b")val=val==="1"?"TRUE":"FALSE";}
+   arr[idx]=val;
+  }
+  rows.push(arr);
+ }
+ return rows;
 }
 
 function money(n){return new Intl.NumberFormat("en-US").format(Number(n)||0)+" LBP"}
