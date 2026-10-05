@@ -116,6 +116,7 @@ const ADMIN = `<!doctype html>
 <div class="panel history"><h2 style="margin-top:0">Recent Changes</h2><div class="hint" style="margin-bottom:10px">Changes from the latest uploads are kept in the system.</div><div class="tablewrap"><table><thead><tr><th>Customer</th><th>Previous</th><th>New</th><th>Difference</th><th>Change</th><th>Time</th></tr></thead><tbody id="historyBody"></tbody></table></div></div>
 </div></div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>window.sheetLoaded=true;</script>
 <script>
 const $=id=>document.getElementById(id);let state={clients:[],history:[]};
