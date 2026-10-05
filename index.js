@@ -12,11 +12,11 @@ h1{font-size:27px;margin:0 0 8px}.hint{color:#64748b;line-height:1.5}.result{mar
 .empty{padding:18px;border-radius:16px;background:#f7f8fa;color:#64748b;margin-top:22px}.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:24px}
 </style></head><body><main class="card"><div class="logo">Cellix</div><div class="sub">Check Your Balance</div>
 <h1>Your Outstanding Balance</h1><div class="hint">This private link shows the latest balance associated with your account.</div>
-<div id="result" class="result"><div class="name" id="name"></div><div class="label">Remaining Balance</div><div class="amount" id="amount"></div></div>
+<div id="result" class="result"><div class="name" id="name"></div><div class="label">Remaining Balance</div><div class="amount" id="amount"></div><div class="label">Last updated</div><div id="updated" style="font-size:15px;font-weight:700;margin-top:5px;color:#18345d"></div></div>
 <div id="empty" class="empty" style="display:none">No balance information is available for this link.</div><div class="small">Cellix</div>
 </main><script>(async()=>{const out=document.getElementById("result"),empty=document.getElementById("empty");try{
 const token=location.pathname.split("/").filter(Boolean).pop()||"";const r=await fetch("/api/customer/"+encodeURIComponent(token),{cache:"no-store"});const d=await r.json();
-if(d.ok&&d.customer){document.getElementById("name").textContent=d.customer.name;document.getElementById("amount").textContent=new Intl.NumberFormat("en-US").format(Number(d.customer.remaining)||0)+" LBP";out.style.display="block"}else empty.style.display="block"}catch(e){empty.style.display="block"}})();</script>
+if(d.ok&&d.customer){document.getElementById("name").textContent=d.customer.name;document.getElementById("amount").textContent=new Intl.NumberFormat("en-US").format(Number(d.customer.remaining)||0)+" LBP";document.getElementById("updated").textContent=d.customer.updatedAt?new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Beirut",dateStyle:"full",timeStyle:"short"}).format(new Date(d.customer.updatedAt)):"";out.style.display="block"}else empty.style.display="block"}catch(e){empty.style.display="block"}})();</script>
 </body></html>`;
 
 const ADMIN=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -53,11 +53,13 @@ function normalizePhone(v){return String(v??"").replace(/\D/g,"")}
 function normalizeName(v){return String(v??"").trim().toLowerCase().replace(/\s+/g," ")}
 async function tokenForCustomer(phone,name){const key=normalizePhone(phone)+"|"+normalizeName(name),hash=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(key));return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,"0")).join("").slice(0,32)}
 function whatsappPhone(phone){let p=normalizePhone(phone);if(p.startsWith("00"))p=p.slice(2);if(p.startsWith("961"))return p;if(p.startsWith("0"))return "961"+p.slice(1);return p}
-function whatsappMessage(link){return `إدارة Cellix تشكركم على ثقتكم بنا،
+function whatsappMessage(link,updatedAt){const t=new Intl.DateTimeFormat("ar-LB",{timeZone:"Asia/Beirut",dateStyle:"full",timeStyle:"short"}).format(new Date(updatedAt));return `إدارة Cellix تشكركم على ثقتكم بنا،
 
 ونشارككم رابطكم الخاص للاطلاع على رصيدكم الحالي:
 
 الرابط: ${link}
+
+تاريخ ووقت الرسالة: ${t}
 
 نرجو منكم عدم مشاركة هذا الرابط مع أي شخص، حفاظاً على خصوصية معلومات حسابكم.
 
@@ -78,7 +80,7 @@ if(request.method==="GET"&&url.pathname.startsWith("/api/customer/")){const toke
 if(request.method==="POST"&&url.pathname==="/api/upload"){if(!env.BALANCES)return json({ok:false,error:"BALANCES KV binding is missing."},500);if((request.headers.get("x-admin-token")||"")!==env.ADMIN_TEST_TOKEN)return json({ok:false,error:"Unauthorized"},401);
 let body;try{body=await request.json()}catch{return json({ok:false,error:"Invalid JSON"},400)}if(!Array.isArray(body.clients)||!body.clients.length)return json({ok:false,error:"No customer data received."},400);
 const clients=body.clients.map(c=>({name:String(c.name??"").trim(),phone:String(c.phone??"").trim(),remaining:Number(c.remaining)||0})).filter(c=>c.name||c.phone);if(!clients.length)return json({ok:false,error:"No valid customer rows."},400);
-await clearCustomers(env);const links=[];for(let i=0;i<clients.length;i+=50){await Promise.all(clients.slice(i,i+50).map(async c=>{const token=await tokenForCustomer(c.phone,c.name),link=`${url.origin}/c/${token}`,wa=`https://wa.me/${whatsappPhone(c.phone)}?text=${encodeURIComponent(whatsappMessage(link))}`;await env.BALANCES.put(DATA_PREFIX+token,JSON.stringify(c));links.push({name:c.name,url:link,whatsapp:wa})}))}
+await clearCustomers(env);const links=[];for(let i=0;i<clients.length;i+=50){await Promise.all(clients.slice(i,i+50).map(async c=>{const token=await tokenForCustomer(c.phone,c.name),link=`${url.origin}/c/${token}`,updatedAt=new Date().toISOString(),customer={...c,updatedAt},wa=`https://wa.me/${whatsappPhone(c.phone)}?text=${encodeURIComponent(whatsappMessage(link,updatedAt))}`;await env.BALANCES.put(DATA_PREFIX+token,JSON.stringify(customer));links.push({name:c.name,url:link,whatsapp:wa})}))}
 await env.BALANCES.put(META_KEY,JSON.stringify({count:clients.length,updatedAt:new Date().toISOString()}));return json({ok:true,count:clients.length,links})}
 if(request.method==="GET"&&url.pathname==="/api/health")return json({ok:true,storage:!!env.BALANCES});
 return new Response("Not found",{status:404})}};
