@@ -26,6 +26,7 @@ button{width:100%;height:54px;border:0;border-radius:14px;background:#1677ff;col
 .err{color:#c62828;font-size:14px;margin-top:14px;display:none}
 .small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:22px}
 </style>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <main class="card">
@@ -146,25 +147,21 @@ async function inflateRaw(data){
 }
 function xmlText(bytes){return new TextDecoder("utf-8").decode(bytes)}
 function firstText(el){return el?el.textContent||"":""}
-async function loadSheetJS(){
- if(window.XLSX)return window.XLSX;
- if(window.__sheetLoading)return window.__sheetLoading;
- window.__sheetLoading=new Promise((resolve,reject)=>{
-  const sc=document.createElement("script");
-  sc.src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js";
-  sc.onload=()=>window.XLSX?resolve(window.XLSX):reject(new Error("Excel reader failed to load."));
-  sc.onerror=()=>reject(new Error("Could not load the Excel reader. Check your internet connection and try again."));
-  document.head.appendChild(sc);
- });
- return window.__sheetLoading;
-}
 async function readXlsx(file){
- const XLSX=await loadSheetJS();
+ if(typeof XLSX==="undefined")throw new Error("Excel reader failed to load. Please refresh the page and try again.");
+ if(/\.csv$/i.test(file.name)){
+  const text=await file.text();
+  const wb=XLSX.read(text,{type:"string",raw:true});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
+ }
  const buf=await file.arrayBuffer();
- const wb=XLSX.read(buf,{type:"array",cellDates:false});
+ let wb;
+ try{wb=XLSX.read(buf,{type:"array",cellDates:false,raw:true});}
+ catch(e){throw new Error("Could not read this Excel file. Make sure it is a valid .xlsx file.");}
+ if(!wb.SheetNames.length)throw new Error("The Excel file has no sheets.");
  const ws=wb.Sheets[wb.SheetNames[0]];
- if(!ws)throw new Error("The Excel file has no sheets.");
- return XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+ return XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
 }
 
 function money(n){return new Intl.NumberFormat("en-US").format(Number(n)||0)+" LBP"}
