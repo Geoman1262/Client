@@ -8,15 +8,15 @@ const PAGE=`<!doctype html><html lang="en"><head>
 .card{width:min(500px,100%);background:#fff;border-radius:26px;padding:30px;box-shadow:0 14px 45px rgba(24,52,93,.12)}
 .logo{font-size:44px;font-weight:800;color:#1677ed;letter-spacing:-2px}.sub{font-size:18px;color:#47617f;margin:5px 0 28px}
 h1{font-size:22px;line-height:1.2;margin:0 0 8px;white-space:nowrap;letter-spacing:-.4px}.hint{color:#64748b;font-size:11px;line-height:1.4}.result{margin-top:22px;padding:22px;border-radius:20px;background:#f2f7ff;border:1px solid #dce9f8;display:none}
-.name{font-size:18px;font-weight:800}.label{font-size:13px;color:#64748b;margin-top:12px}.amount{font-size:34px;font-weight:900;color:#d33;margin-top:5px}
+.name{font-size:18px;font-weight:800}.phone{font-size:12px;font-weight:500;color:#64748b;margin-top:4px}.label{font-size:13px;color:#64748b;margin-top:12px}.amount{font-size:34px;font-weight:900;color:#d33;margin-top:5px}
 .empty{padding:18px;border-radius:16px;background:#f7f8fa;color:#64748b;margin-top:22px}.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:24px}
 </style></head><body><main class="card"><div class="logo">Cellix</div><div class="sub">Check Your Balance</div>
 <h1>Your Outstanding Balance</h1><div class="hint">This private link shows the latest balance associated with your account.</div>
-<div id="result" class="result"><div class="name" id="name"></div><div class="label">Remaining Balance</div><div class="amount" id="amount"></div><div class="label">Last updated</div><div id="updated" style="font-size:15px;font-weight:700;margin-top:5px;color:#18345d"></div></div>
+<div id="result" class="result"><div class="name" id="name"></div><div class="phone" id="phone"></div><div class="label">Remaining Balance</div><div class="amount" id="amount"></div><div class="label">Last updated</div><div id="updated" style="font-size:15px;font-weight:700;margin-top:5px;color:#18345d"></div></div>
 <div id="empty" class="empty" style="display:none">No balance information is available for this link.</div><div class="small">Cellix</div>
 </main><script>(async()=>{const out=document.getElementById("result"),empty=document.getElementById("empty");try{
 const token=location.pathname.split("/").filter(Boolean).pop()||"";const r=await fetch("/api/customer/"+encodeURIComponent(token),{cache:"no-store"});const d=await r.json();
-if(d.ok&&d.customer){document.getElementById("name").textContent=d.customer.name;document.getElementById("amount").textContent=new Intl.NumberFormat("en-US").format(Number(d.customer.remaining)||0)+" LBP";document.getElementById("updated").textContent=d.customer.updatedAt?new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Beirut",dateStyle:"full",timeStyle:"short"}).format(new Date(d.customer.updatedAt)):"";out.style.display="block"}else empty.style.display="block"}catch(e){empty.style.display="block"}})();</script>
+if(d.ok&&d.customer){document.getElementById("name").textContent=d.customer.name||"Customer";document.getElementById("phone").textContent=d.customer.phone?d.customer.phone:"";document.getElementById("amount").textContent=new Intl.NumberFormat("en-US").format(Number(d.customer.remaining)||0)+" LBP";document.getElementById("updated").textContent=d.customer.updatedAt?new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Beirut",dateStyle:"full",timeStyle:"short"}).format(new Date(d.customer.updatedAt)):"";out.style.display="block"}else empty.style.display="block"}catch(e){empty.style.display="block"}})();</script>
 </body></html>`;
 
 const ADMIN=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -40,8 +40,8 @@ if(nameI<0||phoneI<0||remI<0)throw new Error("Required columns: Name, Contact Nu
 const clients=[];for(let i=1;i<rows.length;i++){const name=String(rows[i][nameI]??"").trim(),phone=String(rows[i][phoneI]??"").trim();const remaining=Number(String(rows[i][remI]??0).replace(/,/g,"").replace(/[^0-9.-]/g,""))||0;if(name||phone)clients.push({name,phone,remaining})}
 if(!clients.length)throw new Error("No customer rows found.");msg.textContent="Uploading "+clients.length+" customers...";
 const r=await fetch("/api/upload",{method:"POST",headers:{"content-type":"application/json","x-admin-token":token},body:JSON.stringify({clients})}),d=await r.json();
-if(!r.ok||!d.ok)throw new Error(d.error||"Upload failed.");msg.textContent="Success. "+d.count+" customers are active.";links.style.display="block";
-d.links.forEach(x=>{const div=document.createElement("div");div.className="link";const b=document.createElement("b");b.textContent=x.name;
+if(!r.ok||!d.ok)throw new Error(d.error||"Upload failed.");msg.textContent="Success. "+d.count+" customers are stored (including closed accounts at 0 balance).";links.style.display="block";
+d.links.forEach(x=>{const div=document.createElement("div");div.className="link";const b=document.createElement("b");b.textContent=x.name+(x.phone?" — "+x.phone:"");
 const a=document.createElement("a");a.className="direct";a.href=x.url;a.target="_blank";a.rel="noopener";a.textContent=x.url;
 const actions=document.createElement("div");actions.className="actions";const wa=document.createElement("a");wa.className="wa";wa.href=x.whatsapp;wa.target="_blank";wa.rel="noopener";wa.textContent="WhatsApp";
 const open=document.createElement("a");open.className="open";open.href=x.url;open.target="_blank";open.rel="noopener";open.textContent="Open Link";
@@ -78,7 +78,13 @@ if(request.method==="GET"&&url.pathname.startsWith("/api/customer/")){const toke
 if(request.method==="POST"&&url.pathname==="/api/upload"){if(!env.BALANCES)return json({ok:false,error:"BALANCES KV binding is missing."},500);if((request.headers.get("x-admin-token")||"")!==env.ADMIN_TEST_TOKEN)return json({ok:false,error:"Unauthorized"},401);
 let body;try{body=await request.json()}catch{return json({ok:false,error:"Invalid JSON"},400)}if(!Array.isArray(body.clients)||!body.clients.length)return json({ok:false,error:"No customer data received."},400);
 const clients=body.clients.map(c=>({name:String(c.name??"").trim(),phone:String(c.phone??"").trim(),remaining:Number(c.remaining)||0})).filter(c=>c.name||c.phone);if(!clients.length)return json({ok:false,error:"No valid customer rows."},400);
-await clearCustomers(env);const links=[];for(let i=0;i<clients.length;i+=50){await Promise.all(clients.slice(i,i+50).map(async c=>{const token=await tokenForCustomer(c.phone,c.name),link=`${url.origin}/c/${token}`,updatedAt=new Date().toISOString(),customer={...c,updatedAt},wa=`https://wa.me/${whatsappPhone(c.phone)}?text=${encodeURIComponent(whatsappMessage(link))}`;await env.BALANCES.put(DATA_PREFIX+token,JSON.stringify(customer));links.push({name:c.name,url:link,whatsapp:wa})}))}
-await env.BALANCES.put(META_KEY,JSON.stringify({count:clients.length,updatedAt:new Date().toISOString()}));return json({ok:true,count:clients.length,links})}
+const previous=[];let prevCursor;do{const page=await env.BALANCES.list({prefix:DATA_PREFIX,cursor:prevCursor});if(page.keys.length){const vals=await Promise.all(page.keys.map(k=>env.BALANCES.get(k.name)));for(let i=0;i<page.keys.length;i++){if(vals[i]){try{const customer=JSON.parse(vals[i]);previous.push({key:page.keys[i].name,customer})}catch{}}}}prevCursor=page.list_complete?undefined:page.cursor}while(prevCursor);
+const oldByPhone=new Map();for(const item of previous){const p=normalizePhone(item.customer.phone);if(p)oldByPhone.set(p,item)}
+const currentPhones=new Set();for(const c of clients){const p=normalizePhone(c.phone);if(p)currentPhones.add(p)}
+const merged=[];const now=new Date().toISOString();
+for(const c of clients){const old=oldByPhone.get(normalizePhone(c.phone));const name=c.name||old?.customer?.name||"Customer";const phone=c.phone||old?.customer?.phone||"";const token=await tokenForCustomer(phone,name);merged.push({name,phone,remaining:c.remaining,token,updatedAt:now,isClosed:false})}
+for(const item of previous){const old=item.customer,p=normalizePhone(old.phone);if(p&&currentPhones.has(p))continue;const name=old.name||"Customer",phone=old.phone||"",token=await tokenForCustomer(phone,name);merged.push({name,phone,remaining:0,token,updatedAt:now,isClosed:true})}
+await clearCustomers(env);const links=[];for(let i=0;i<merged.length;i+=50){await Promise.all(merged.slice(i,i+50).map(async c=>{const link=`${url.origin}/c/${c.token}`,customer={name:c.name,phone:c.phone,remaining:c.remaining,updatedAt:c.updatedAt,isClosed:c.isClosed},wa=`https://wa.me/${whatsappPhone(c.phone)}?text=${encodeURIComponent(whatsappMessage(link))}`;await env.BALANCES.put(DATA_PREFIX+c.token,JSON.stringify(customer));links.push({name:c.name,phone:c.phone,url:link,whatsapp:wa,isClosed:c.isClosed})}))}
+await env.BALANCES.put(META_KEY,JSON.stringify({count:merged.length,activeCount:clients.length,closedCount:merged.length-clients.length,updatedAt:now}));return json({ok:true,count:merged.length,activeCount:clients.length,closedCount:merged.length-clients.length,links})}
 if(request.method==="GET"&&url.pathname==="/api/health")return json({ok:true,storage:!!env.BALANCES});
 return new Response("Not found",{status:404})}};
