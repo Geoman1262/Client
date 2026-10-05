@@ -106,17 +106,18 @@ const ADMIN = `<!doctype html>
 
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033}.wrap{max-width:1250px;margin:0 auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:20px}.logo{font-size:38px;font-weight:900;color:#1677ff}.sub{color:#697386;margin-top:5px}.time{background:#fff;border:1px solid #dfe6ef;border-radius:16px;padding:12px 16px;text-align:right;font-size:13px;color:#697386;box-shadow:0 6px 20px #17325d0d}.time b{display:block;color:#172033;font-size:14px;margin-top:3px}.panel{background:#fff;border-radius:20px;padding:20px;box-shadow:0 10px 30px #17325d0d;margin-bottom:20px}.uploadgrid{display:grid;grid-template-columns:1fr 230px;gap:12px}.filebox{border:2px dashed #cbd8e8;border-radius:16px;padding:16px}.filebox input{width:100%;margin-top:10px}.controls{display:flex;gap:10px;align-items:end}.controls input{height:48px;border:1px solid #ccd6e2;border-radius:11px;padding:0 12px;font-size:15px;width:100%}button{border:0;border-radius:11px;height:48px;padding:0 18px;font-weight:800;cursor:pointer;background:#1677ff;color:#fff;white-space:nowrap}button:disabled{opacity:.55}.btn2{background:#edf4ff;color:#1263d6}.msg{margin-top:12px;font-size:14px;white-space:pre-wrap;line-height:1.5}.ok{color:#16803c}.bad{color:#c62828}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:#fff;border-radius:16px;padding:18px;border:1px solid #e1e8f1}.card .k{font-size:13px;color:#697386}.card .v{font-size:25px;font-weight:900;margin-top:8px}.blue{color:#1677ff}.green{color:#16803c}.red{color:#c62828}.muted{color:#697386}.searchrow{display:flex;gap:10px;margin:18px 0 10px}.searchrow input,.searchrow select{height:44px;border:1px solid #ccd6e2;border-radius:10px;padding:0 12px;font-size:14px}.searchrow input{flex:1}.searchrow select{min-width:190px;background:#fff}.tablewrap{overflow:auto;border:1px solid #e2e8f0;border-radius:14px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:11px 12px;border-bottom:1px solid #edf0f4;text-align:left;font-size:13px}th{background:#f8fafc;color:#526075;position:sticky;top:0}td.num{text-align:right}.pill{display:inline-block;padding:6px 9px;border-radius:999px;font-size:11px;font-weight:800}.pill.paid{background:#eaf8ef;color:#167a3b}.pill.due{background:#fff0f0;color:#b42318}.pill.missing{background:#eef2f6;color:#667085}.mini{display:inline-block;text-decoration:none;border-radius:8px;padding:7px 9px;background:#1677ff;color:#fff;margin-right:5px}.wa{background:#18a957}.history{margin-top:20px}.history td.plus{color:#c62828;font-weight:800}.history td.minus{color:#16803c;font-weight:800}.empty{text-align:center;color:#7a8494;padding:25px}.hint{font-size:12px;color:#697386;margin-top:8px}.hidden{display:none}@media(max-width:800px){.wrap{padding:14px}.top{display:block}.time{margin-top:12px;text-align:left}.uploadgrid{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,1fr)}.controls{display:block}.controls button{width:100%;margin-top:8px}.searchrow{display:block}.searchrow input,.searchrow select{width:100%;margin-bottom:8px}}
-</style></head><body data-cellix-build="CELLIX-TEST-V6"><div class="wrap">
+</style></head><body><div class="wrap">
 <div class="top"><div><div class="logo">Cellix</div><h1 style="margin:5px 0 0">Customer Balance Dashboard</h1><div class="sub">Upload the latest Excel and manage private customer links.</div></div><div class="time">Last updated<b id="lastUpdated">—</b></div></div>
-<div class="panel"><h2 style="margin-top:0">Update Customer Balances</h2><div class="uploadgrid"><div class="filebox"><b>Choose Excel File</b><input id="file" type="file" accept=".xlsx,.xls,.csv" onchange="document.getElementById('fileInfo').textContent=this.files&&this.files.length?'Selected: '+this.files[0].name+' ('+Math.round(this.files[0].size/1024)+' KB)':'No file selected.'"><div id="fileInfo" class="hint">No file selected.</div></div><div class="controls"><input id="token" type="password" placeholder="Admin token" autocomplete="off"><button id="upload" type="button">Upload & Update</button></div></div><div id="msg" class="msg"></div><div id="ready" class="hint" style="margin-top:10px">System ready. Excel reader V6 — verified.</div></div>
+<div class="panel"><h2 style="margin-top:0">Update Customer Balances</h2><div class="uploadgrid"><div class="filebox"><b>Choose Excel File</b><input id="file" type="file" accept=".xlsx,.xls,.csv"><div id="fileInfo" class="hint">No file selected.</div></div><div class="controls"><input id="token" type="password" placeholder="Admin token" autocomplete="off"><button id="upload" type="button">Upload & Update</button></div></div><div id="msg" class="msg"></div><div id="diag" style="margin-top:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;font:12px/1.6 monospace;white-space:pre-wrap">DIAGNOSTIC READY
+Waiting for Upload...</div><div id="ready" class="hint" style="margin-top:10px">System ready. Built-in Excel reader ready.</div></div>
 <div id="dashboard" class="hidden">
 <div class="cards"><div class="card"><div class="k">Total Customers</div><div class="v blue" id="totalCustomers">0</div></div><div class="card"><div class="k">Total Outstanding</div><div class="v red" id="totalOutstanding">0 LBP</div></div><div class="card"><div class="k">Paid</div><div class="v green" id="paidCount">0</div></div><div class="card"><div class="k">Outstanding</div><div class="v red" id="outstandingCount">0</div></div></div>
 <div class="panel" style="margin-top:12px"><div style="font-weight:800">Customers not in latest Excel: <span id="missingCount">0</span></div></div>
 <div class="panel"><h2 style="margin-top:0">Customers</h2><div class="searchrow"><input id="search" placeholder="Search by name or phone..."><select id="filter"><option value="all">All Customers</option><option value="outstanding">Outstanding Only</option><option value="paid">Paid Only</option><option value="missing">Not in Latest Excel</option></select></div><div class="tablewrap"><table><thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>Balance</th><th>Status</th><th>Private Link</th><th>WhatsApp</th></tr></thead><tbody id="customersBody"></tbody></table></div></div>
 <div class="panel history"><h2 style="margin-top:0">Recent Changes</h2><div class="hint" style="margin-bottom:10px">Changes from the latest uploads are kept in the system.</div><div class="tablewrap"><table><thead><tr><th>Customer</th><th>Previous</th><th>New</th><th>Difference</th><th>Change</th><th>Time</th></tr></thead><tbody id="historyBody"></tbody></table></div></div>
 </div></div>
+<script>window.sheetLoaded=true;</script>
 <script>
-window.CELLIX_BUILD="CELLIX-TEST-V6";
 const $=id=>document.getElementById(id);let state={clients:[],history:[]};
 async function unzipEntries(buf){
  const a=new Uint8Array(buf), dv=new DataView(buf); const u16=(p)=>dv.getUint16(p,true), u32=(p)=>dv.getUint32(p,true);
@@ -142,7 +143,6 @@ async function inflateRaw(data){
 function xmlText(bytes){return new TextDecoder("utf-8").decode(bytes)}
 function firstText(el){return el?el.textContent||"":""}
 async function readXlsx(file){
- if(!file||!file.size)throw new Error("Selected file is empty.");
  if(/\.csv$/i.test(file.name)){
   const text=await file.text(); return text.split(/\r?\n/).filter(x=>x.trim()!=="").map(line=>{let out=[],cur="",q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;continue}if(ch==='"'){q=!q;continue}if(ch===','&&!q){out.push(cur);cur=""}else cur+=ch}out.push(cur);return out});
  }
@@ -173,7 +173,40 @@ $("historyBody").innerHTML=state.history.map(h=>'<tr><td><b>'+esc(h.name)+'</b><
 async function loadDashboard(){try{const d=await api("/api/dashboard");state=d;$("dashboard").classList.remove("hidden");$("lastUpdated").textContent=localTime(d.updatedAt);render();}catch(e){show("Dashboard: "+e.message,"bad");}}
 $("search").addEventListener("input",render);$("filter").addEventListener("change",render);
 $("token").addEventListener("change",()=>{if(adminToken())loadDashboard()});
-$("upload").onclick=async()=>{try{const f=$("file").files[0];if(!adminToken()){show("Error: Please enter the admin token.","bad");return}if(!f){show("Error: Please select the Excel file.","bad");return}$("upload").disabled=true;show("Reading Excel...");try{const rows=await readXlsx(f);if(!rows.length)throw new Error("The Excel file is empty.");const header=(rows[0]||[]).map(v=>String(v??"").trim().toLowerCase());const find=(...names)=>{for(const n of names){const i=header.indexOf(n.toLowerCase());if(i>=0)return i}return -1};const nameI=find("name","client name","customer name"),phoneI=find("contact number","phone","phone number","contact"),remI=find("remaining balance","remaining","balance due","amount due");if(nameI<0||phoneI<0||remI<0)throw new Error("Required columns not found. Need: Name, Contact Number, Remaining Balance.");const clients=[];for(let i=1;i<rows.length;i++){const name=String(rows[i]?.[nameI]??"").trim(),phone=String(rows[i]?.[phoneI]??"").trim();let remaining=rows[i]?.[remI]??0;if(name||phone){remaining=Number(String(remaining).replace(/,/g,"").replace(/[^0-9.-]/g,""))||0;clients.push({name,phone,remaining})}}if(!clients.length)throw new Error("No customer rows found.");show("Uploading "+clients.length+" customers...");const d=await api("/api/upload",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({clients})});show("Success. "+d.count+" customers updated. Private links preserved.","ok");await loadDashboard();$("file").value="";$("fileInfo").textContent="No file selected.";}catch(e){show("Error: "+(e.message||e),"bad")}finally{$("upload").disabled=false}}catch(e){show("Upload error: "+(e.message||e),"bad");$("upload").disabled=false}};
+$("upload").onclick=async()=>{
+ const started=Date.now(); const log=[]; const D=t=>{log.push(t);$("diag").textContent=log.join("\n")};
+ const f=$("file").files[0];
+ D("1. FILE: "+(f?"PASS — "+f.name+" ("+Math.round(f.size/1024)+" KB)":"FAIL — no file selected"));
+ if(!adminToken()){D("2. TOKEN: FAIL — admin token is empty");show("Error: Please enter the admin token.","bad");return}
+ D("2. TOKEN: PRESENT");
+ if(!f){show("Error: Please select the Excel file.","bad");return}
+ $("upload").disabled=true; show("Reading Excel...");
+ try{
+   D("3. EXCEL READ: START");
+   const rows=await readXlsx(f);
+   if(!rows.length)throw new Error("The Excel file is empty.");
+   const header=(rows[0]||[]).map(v=>String(v??"").trim().toLowerCase());
+   const find=(...names)=>{for(const n of names){const i=header.indexOf(n.toLowerCase());if(i>=0)return i}return -1};
+   const nameI=find("name","client name","customer name"),phoneI=find("contact number","phone","phone number","contact"),remI=find("remaining balance","remaining","balance due","amount due");
+   if(nameI<0||phoneI<0||remI<0)throw new Error("Required columns not found. Need: Name, Contact Number, Remaining Balance.");
+   const clients=[];
+   for(let i=1;i<rows.length;i++){const name=String(rows[i]?.[nameI]??"").trim(),phone=String(rows[i]?.[phoneI]??"").trim();let remaining=rows[i]?.[remI]??0;if(name||phone){remaining=Number(String(remaining).replace(/,/g,"").replace(/[^0-9.-]/g,""))||0;clients.push({name,phone,remaining})}}
+   if(!clients.length)throw new Error("No customer rows found.");
+   D("3. EXCEL READ: PASS — "+clients.length+" customers");
+   D("4. REQUEST: SENDING POST /api/upload");
+   const t=Date.now();
+   const r=await fetch("/api/upload",{method:"POST",headers:{"content-type":"application/json","x-admin-token":adminToken()},body:JSON.stringify({clients})});
+   const raw=await r.text();
+   D("5. SERVER: HTTP "+r.status+" — "+(Date.now()-t)+" ms");
+   let d;try{d=JSON.parse(raw)}catch{throw new Error("Server returned non-JSON: "+raw.slice(0,300))}
+   if(!r.ok||d.ok===false){D("6. SERVER RESULT: FAIL — "+(d.error||d.message||"Upload failed"));show("Error: "+(d.error||d.message||("HTTP "+r.status)),"bad");return}
+   D("6. SERVER RESULT: PASS — updated "+d.count+" customers");
+   D("7. TOTAL CUSTOMERS: "+d.totalCustomers);
+   D("8. TOTAL TIME: "+(Date.now()-started)+" ms");
+   show("UPLOAD SUCCESS — "+d.count+" customers updated.","ok");
+   await loadDashboard();
+ }catch(e){D("FAILED: "+(e.message||e));show("Error: "+(e.message||e),"bad")}finally{$("upload").disabled=false}
+};
 </script></body></html>`;
 
 function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json;charset=UTF-8","cache-control":"no-store"}});}
