@@ -7,7 +7,7 @@ const PAGE=`<!doctype html><html lang="en"><head>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#eef7ff,#f8fbff);color:#18345d;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:22px}
 .card{width:min(500px,100%);background:#fff;border-radius:26px;padding:30px;box-shadow:0 14px 45px rgba(24,52,93,.12)}
 .logo{font-size:44px;font-weight:800;color:#1677ed;letter-spacing:-2px}.sub{font-size:18px;color:#47617f;margin:5px 0 28px}
-h1{font-size:27px;margin:0 0 8px}.hint{color:#64748b;line-height:1.5}.result{margin-top:22px;padding:22px;border-radius:20px;background:#f2f7ff;border:1px solid #dce9f8;display:none}
+h1{font-size:22px;line-height:1.2;margin:0 0 8px;white-space:nowrap;letter-spacing:-.4px}.hint{color:#64748b;font-size:11px;line-height:1.4}.result{margin-top:22px;padding:22px;border-radius:20px;background:#f2f7ff;border:1px solid #dce9f8;display:none}
 .name{font-size:18px;font-weight:800}.label{font-size:13px;color:#64748b;margin-top:12px}.amount{font-size:34px;font-weight:900;color:#d33;margin-top:5px}
 .empty{padding:18px;border-radius:16px;background:#f7f8fa;color:#64748b;margin-top:22px}.small{text-align:center;color:#9aa3b2;font-size:12px;margin-top:24px}
 </style></head><body><main class="card"><div class="logo">Cellix</div><div class="sub">Check Your Balance</div>
@@ -53,13 +53,11 @@ function normalizePhone(v){return String(v??"").replace(/\D/g,"")}
 function normalizeName(v){return String(v??"").trim().toLowerCase().replace(/\s+/g," ")}
 async function tokenForCustomer(phone,name){const key=normalizePhone(phone)+"|"+normalizeName(name),hash=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(key));return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,"0")).join("").slice(0,32)}
 function whatsappPhone(phone){let p=normalizePhone(phone);if(p.startsWith("00"))p=p.slice(2);if(p.startsWith("961"))return p;if(p.startsWith("0"))return "961"+p.slice(1);return p}
-function whatsappMessage(link,updatedAt){const t=new Intl.DateTimeFormat("ar-LB",{timeZone:"Asia/Beirut",dateStyle:"full",timeStyle:"short"}).format(new Date(updatedAt));return `إدارة Cellix تشكركم على ثقتكم بنا،
+function whatsappMessage(link){return `إدارة Cellix تشكركم على ثقتكم بنا،
 
 ونشارككم رابطكم الخاص للاطلاع على رصيدكم الحالي:
 
 الرابط: ${link}
-
-تاريخ ووقت الرسالة: ${t}
 
 نرجو منكم عدم مشاركة هذا الرابط مع أي شخص، حفاظاً على خصوصية معلومات حسابكم.
 
@@ -80,7 +78,7 @@ if(request.method==="GET"&&url.pathname.startsWith("/api/customer/")){const toke
 if(request.method==="POST"&&url.pathname==="/api/upload"){if(!env.BALANCES)return json({ok:false,error:"BALANCES KV binding is missing."},500);if((request.headers.get("x-admin-token")||"")!==env.ADMIN_TEST_TOKEN)return json({ok:false,error:"Unauthorized"},401);
 let body;try{body=await request.json()}catch{return json({ok:false,error:"Invalid JSON"},400)}if(!Array.isArray(body.clients)||!body.clients.length)return json({ok:false,error:"No customer data received."},400);
 const clients=body.clients.map(c=>({name:String(c.name??"").trim(),phone:String(c.phone??"").trim(),remaining:Number(c.remaining)||0})).filter(c=>c.name||c.phone);if(!clients.length)return json({ok:false,error:"No valid customer rows."},400);
-await clearCustomers(env);const links=[];for(let i=0;i<clients.length;i+=50){await Promise.all(clients.slice(i,i+50).map(async c=>{const token=await tokenForCustomer(c.phone,c.name),link=`${url.origin}/c/${token}`,updatedAt=new Date().toISOString(),customer={...c,updatedAt},wa=`https://wa.me/${whatsappPhone(c.phone)}?text=${encodeURIComponent(whatsappMessage(link,updatedAt))}`;await env.BALANCES.put(DATA_PREFIX+token,JSON.stringify(customer));links.push({name:c.name,url:link,whatsapp:wa})}))}
+await clearCustomers(env);const links=[];for(let i=0;i<clients.length;i+=50){await Promise.all(clients.slice(i,i+50).map(async c=>{const token=await tokenForCustomer(c.phone,c.name),link=`${url.origin}/c/${token}`,updatedAt=new Date().toISOString(),customer={...c,updatedAt},wa=`https://wa.me/${whatsappPhone(c.phone)}?text=${encodeURIComponent(whatsappMessage(link))}`;await env.BALANCES.put(DATA_PREFIX+token,JSON.stringify(customer));links.push({name:c.name,url:link,whatsapp:wa})}))}
 await env.BALANCES.put(META_KEY,JSON.stringify({count:clients.length,updatedAt:new Date().toISOString()}));return json({ok:true,count:clients.length,links})}
 if(request.method==="GET"&&url.pathname==="/api/health")return json({ok:true,storage:!!env.BALANCES});
 return new Response("Not found",{status:404})}};
