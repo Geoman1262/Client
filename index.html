@@ -1,46 +1,191 @@
 <!doctype html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Cellix - Check Your Balance</title>
-  <style>
-    body{font-family:Arial,sans-serif;background:#eef6ff;margin:0;padding:30px;color:#17345f}
-    .card{max-width:520px;margin:auto;background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 35px #0001}
-    h1{margin-top:0;color:#1477ed}.sub{color:#64748b}
-    input{width:100%;box-sizing:border-box;padding:15px;border:1px solid #d5dfeb;border-radius:12px;margin:8px 0 16px;font-size:16px}
-    button{width:100%;padding:16px;border:0;border-radius:12px;background:#1477ed;color:white;font-size:17px;font-weight:bold}
-    #result{margin-top:20px;padding:16px;background:#f7f9fc;border-radius:14px;display:none}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1769aa">
+<title>دفتر الديون - نسخة قابلة للتعديل</title>
+<style>
+:root{font-family:Tahoma,Arial,sans-serif;color:#17212b;background:#f3f6fa}
+*{box-sizing:border-box}body{margin:0;padding:18px}.wrap{max-width:920px;margin:auto}
+header{background:#1769aa;color:#fff;padding:20px;border-radius:16px;margin-bottom:16px}
+h1{font-size:24px;margin:0 0 8px}header p{margin:0;opacity:.92}
+.card{background:#fff;padding:16px;border-radius:14px;margin:12px 0;box-shadow:0 3px 14px #10243a0c}
+h2{font-size:18px;margin:0 0 12px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+label{display:block;font-size:13px;margin-bottom:5px;color:#425466}input,textarea,button{font:inherit;width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:9px}
+button{border:0;background:#1769aa;color:#fff;cursor:pointer;font-weight:bold;margin-top:8px}button.secondary{background:#e8eef5;color:#17324d}button.danger{background:#b42318}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}.stat{padding:14px;border-radius:12px;background:#edf5fc}.stat small{display:block;color:#516579}.stat strong{display:block;font-size:22px;margin-top:6px}
+table{width:100%;border-collapse:collapse;min-width:600px}th,td{padding:10px;border-bottom:1px solid #e5eaf0;text-align:right;font-size:14px}th{background:#f7f9fc}
+.tablebox{overflow:auto}.muted{color:#64748b;font-size:13px}.good{color:#087443}.bad{color:#b42318}.rowactions button{width:auto;margin:0;padding:6px 10px}
+#message{margin-top:10px;font-weight:bold}.operations-list{display:grid;gap:9px}.operation{border:1px solid #dbe4ee;border-radius:11px;overflow:hidden}.operation-toggle{display:flex;align-items:center;gap:10px;width:100%;margin:0;padding:13px;background:#fff;color:#17212b;text-align:right}.operation-toggle:hover{background:#f7fbff}.op-badge{flex-shrink:0;border-radius:7px;padding:5px 8px;background:#e5f1fc;color:#1769aa;font-size:12px}.op-main{flex:1;min-width:0}.op-title{font-weight:bold;display:block}.op-sub{display:block;font-size:12px;color:#64748b;margin-top:4px}.op-amount{font-weight:bold;white-space:nowrap}.operation-details{padding:13px;border-top:1px solid #e5eaf0;background:#fbfdff;line-height:1.8}.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin-bottom:10px}.detail-box{background:#f0f5fa;padding:9px;border-radius:8px}.detail-box small{display:block;color:#64748b}.allocation-list{margin:6px 0 0;padding-right:20px}.status-pill{display:inline-block;padding:3px 8px;border-radius:20px;font-size:12px;background:#e6f6ed;color:#087443}.status-pill.pending{background:#fff0ed;color:#b42318}.notice{background:#fff7df;border:1px solid #f3d47a;padding:12px;border-radius:10px;font-size:13px;line-height:1.7}
+@media(max-width:540px){body{padding:10px}header{padding:16px}h1{font-size:21px}}
+</style>
 </head>
 <body>
-  <div class="card">
-    <h1>Cellix</h1>
-    <h2>Check Your Unpaid Balance</h2>
-    <p class="sub">Enter your phone number and full name.</p>
-    <input id="phone" placeholder="Phone Number">
-    <input id="name" placeholder="Full Name">
-    <button onclick="checkBalance()">Check My Balance</button>
-    <div id="result"></div>
-  </div>
+<div class="wrap">
+<header>
+<h1>دفتر الديون</h1>
+<p>نسخة HTML قابلة للتعديل — تسجيل ديون ودفعات وتوزيع الدفعة على أقدم دين أولًا.</p>
+</header>
+<div class="notice"><strong>مهم:</strong> هذه نسخة مستقلة للتعديل والتجربة وليست ملف تطبيقك المنشور الأصلي. لا تستبدل بها التطبيق الحالي مباشرةً قبل نقل بياناتك أو دمج التعديلات؛ بيانات هذه النسخة تُحفظ محليًا في المتصفح.</div>
+<section class="card">
+<h2>الملخّص</h2>
+<div class="stats">
+<div class="stat"><small>إجمالي الديون المسجّلة</small><strong id="totalDebt">0</strong></div>
+<div class="stat"><small>إجمالي المدفوع</small><strong id="totalPaid">0</strong></div>
+<div class="stat"><small>الرصيد المتبقي</small><strong id="balance">0</strong></div>
+</div>
+</section>
+<section class="card">
+<h2>إضافة دين / بضاعة</h2>
+<div class="grid">
+<div><label for="debtDesc">التفاصيل</label><input id="debtDesc" placeholder="مثلاً: بضاعة"></div>
+<div><label for="debtAmount">المبلغ</label><input id="debtAmount" type="number" min="0.01" step="0.01" placeholder="0.00"></div>
+</div>
+<button id="addDebt">إضافة الدين</button>
+</section>
+<section class="card">
+<h2>تسجيل دفعة</h2>
+<div class="grid">
+<div><label for="paymentAmount">مبلغ الدفعة</label><input id="paymentAmount" type="number" min="0.01" step="0.01" placeholder="0.00"></div>
+<div><label for="paymentNote">ملاحظة (اختياري)</label><input id="paymentNote" placeholder="مثلاً: دفعة نقدية"></div>
+</div>
+<button id="addPayment">تسجيل الدفعة وتوزيعها FIFO</button>
+<p class="muted">تُخصم الدفعة من أقدم دين غير مسدّد أولًا، ثم تنتقل إلى الدين التالي. لا يمكن تسجيل دفعة أكبر من الرصيد المتبقي.</p>
+<div id="message" role="status"></div>
+</section>
+<section class="card">
+<h2>العمليات — اضغط على أي عملية للتفاصيل</h2>
+<p class="muted">تظهر أحدث العمليات أولًا. افتح أي عملية لمعرفة المبلغ، حالة التسديد، والتواريخ المرتبطة بها.</p>
+<div id="operationsList" class="operations-list"></div>
+</section>
+<section class="card">
+<h2>الديون</h2>
+<div class="tablebox"><table><thead><tr><th>التاريخ والوقت</th><th>التفاصيل</th><th>قيمة الدين</th><th>المدفوع منه</th><th>المتبقي</th><th>الحالة</th></tr></thead><tbody id="debtsBody"></tbody></table></div>
+</section>
+<section class="card">
+<h2>سجل الدفعات وتوزيع كل دفعة</h2>
+<div class="tablebox"><table><thead><tr><th>التاريخ والوقت</th><th>مبلغ الدفعة</th><th>الملاحظة</th><th>تفاصيل التوزيع من الأقدم للأحدث</th></tr></thead><tbody id="paymentsBody"></tbody></table></div>
+</section>
+<section class="card">
+<h2>البحث والتصدير</h2>
+<div class="grid">
+<div><label for="search">ابحث في التفاصيل والسجل</label><input id="search" placeholder="اكتب كلمة أو تاريخًا"></div>
+<div><label for="fromDate">من تاريخ</label><input id="fromDate" type="date"></div>
+<div><label for="toDate">إلى تاريخ</label><input id="toDate" type="date"></div>
+</div>
+<button id="export">تنزيل نسخة احتياطية JSON</button>
+<button id="exportCsv" class="secondary">تنزيل سجل العمليات CSV</button>
+<button id="importBtn" class="secondary">استيراد نسخة JSON</button>
+<input id="importFile" type="file" accept=".json,application/json" hidden>
+<p class="muted">استخدم النسخة الاحتياطية لنقل البيانات أو حفظها. لا تمسح بيانات المتصفح قبل التأكد من وجود نسخة احتياطية.</p>
+</section>
+</div>
 <script>
-async function checkBalance(){
-  const result=document.getElementById('result');
-  result.style.display='block';
-  result.textContent='Checking...';
-  try{
-    const r=await fetch('/api/check',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        phone:document.getElementById('phone').value.trim(),
-        name:document.getElementById('name').value.trim()
-      })
-    });
-    const d=await r.json();
-    result.textContent=d.error || JSON.stringify(d);
-  }catch(e){ result.textContent='Connection error.'; }
-}
+(() => {
+  // مفتاح تخزين خاص بهذه النسخة التجريبية؛ لا يقرأ أو يغيّر مفاتيح تطبيق آخر.
+  const STORAGE_KEY = 'debt_ledger_fifo_draft_v1';
+  let state = { debts: [], payments: [] };
+  const $ = id => document.getElementById(id);
+  const now = () => new Date().toISOString();
+  const money = n => (Math.round((Number(n) + Number.EPSILON) * 100) / 100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const dateText = iso => new Date(iso).toLocaleString('ar-LB');
+  function load(){try{const x=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(x&&Array.isArray(x.debts)&&Array.isArray(x.payments))state=x;}catch(e){console.warn('Could not load saved data',e)}}
+  function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));render()}
+  function totals(){const debt=state.debts.reduce((s,d)=>s+d.amount,0),paid=state.payments.reduce((s,p)=>s+p.amount,0);return {debt,paid,balance:Math.max(0,debt-paid)}}
+  function render(){
+    const t=totals();$('totalDebt').textContent=money(t.debt);$('totalPaid').textContent=money(t.paid);$('balance').textContent=money(t.balance);
+    const q=$('search').value.trim().toLowerCase(),from=$('fromDate').value,to=$('toDate').value;
+    const matches=(iso,text)=>{const d=new Date(iso).toISOString().slice(0,10);return (!q||String(text).toLowerCase().includes(q)||dateText(iso).toLowerCase().includes(q))&&(!from||d>=from)&&(!to||d<=to)};
+    $('debtsBody').innerHTML=state.debts.filter(d=>matches(d.createdAt,d.description)).map(d=>{
+      const paid=state.payments.reduce((s,p)=>s+p.allocations.filter(a=>a.debtId===d.id).reduce((z,a)=>z+a.amount,0),0);
+      const remaining=Math.max(0,Math.round((d.amount-paid)*100)/100);
+      return `<tr><td>${escapeHtml(dateText(d.createdAt))}</td><td>${escapeHtml(d.description)}</td><td>${money(d.amount)}</td><td>${money(paid)}</td><td>${money(remaining)}</td><td class="${remaining<=0?'good':'bad'}">${remaining<=0?'مسدّد':'غير مسدّد'}</td></tr>`;
+    }).join('')||'<tr><td colspan="6">لا توجد ديون مطابقة.</td></tr>';
+    $('paymentsBody').innerHTML=state.payments.filter(p=>matches(p.createdAt,p.note+' '+p.allocations.map(a=>a.description).join(' '))).map(p=>{
+      const allocationText=p.allocations.map(a=>`${escapeHtml(a.description)}: ${money(a.amount)}`).join(' ← ');
+      return `<tr><td>${escapeHtml(dateText(p.createdAt))}</td><td>${money(p.amount)}</td><td>${escapeHtml(p.note||'—')}</td><td>${allocationText||'—'}</td></tr>`;
+    }).join('')||'<tr><td colspan="4">لا توجد دفعات مطابقة.</td></tr>';
+    renderOperations(matches);
+  }
+  function renderOperations(matches){
+    const ops=[
+      ...state.debts.map(d=>({kind:'debt',id:d.id,date:d.createdAt,record:d})),
+      ...state.payments.map(p=>({kind:'payment',id:p.id,date:p.createdAt,record:p}))
+    ].filter(o=>matches(o.date,o.kind==='debt'?o.record.description:(o.record.note+' '+o.record.allocations.map(a=>a.description).join(' '))))
+     .sort((a,b)=>new Date(b.date)-new Date(a.date));
+    $('operationsList').innerHTML=ops.map(o=>{
+      const r=o.record, isDebt=o.kind==='debt';
+      const paid=isDebt?Math.round(state.payments.reduce((sum,p)=>sum+p.allocations.filter(a=>a.debtId===r.id).reduce((z,a)=>z+a.amount,0),0)*100)/100:0;
+      const remaining=isDebt?Math.max(0,Math.round((r.amount-paid)*100)/100):0;
+      const status=isDebt?(remaining<=0?'مدفوع بالكامل':'باقي '+money(remaining)):'تم تسجيل الدفعة';
+      let details='';
+      if(isDebt){
+        const payRows=state.payments.map(p=>({p,amount:p.allocations.filter(a=>a.debtId===r.id).reduce((z,a)=>z+a.amount,0)})).filter(x=>x.amount>0).sort((a,b)=>new Date(a.p.createdAt)-new Date(b.p.createdAt));
+        details=`<div class="detail-grid"><div class="detail-box"><small>قيمة الدين</small><strong>${money(r.amount)}</strong></div><div class="detail-box"><small>المدفوع</small><strong>${money(paid)}</strong></div><div class="detail-box"><small>المتبقي</small><strong>${money(remaining)}</strong></div><div class="detail-box"><small>تاريخ تسجيل الدين</small><strong>${escapeHtml(dateText(r.createdAt))}</strong></div></div><strong>تواريخ الدفعات التي سددت هذا الدين:</strong>`;
+        details+=payRows.length?`<ul class="allocation-list">${payRows.map(x=>`<li>${escapeHtml(dateText(x.p.createdAt))} — دُفع ${money(x.amount)} من هذه الدفعة${x.p.note?' ('+escapeHtml(x.p.note)+')':''}</li>`).join('')}</ul>`:'<p class="muted">لم تُسجّل دفعات على هذا الدين بعد.</p>';
+      }else{
+        details=`<div class="detail-grid"><div class="detail-box"><small>قيمة الدفعة</small><strong>${money(r.amount)}</strong></div><div class="detail-box"><small>تاريخ ووقت الدفع</small><strong>${escapeHtml(dateText(r.createdAt))}</strong></div><div class="detail-box"><small>الملاحظة</small><strong>${escapeHtml(r.note||'—')}</strong></div></div><strong>توزيع الدفعة على الديون (من الأقدم للأحدث):</strong>`;
+        details+=r.allocations.length?`<ul class="allocation-list">${r.allocations.map(a=>{const d=state.debts.find(x=>x.id===a.debtId);const already=state.payments.reduce((sum,p)=>sum+p.allocations.filter(x=>x.debtId===a.debtId).reduce((z,x)=>z+x.amount,0),0);const rem=d?Math.max(0,Math.round((d.amount-already)*100)/100):0;return `<li><strong>${escapeHtml(a.description)}</strong> — خُصص ${money(a.amount)}. تاريخ الدين: ${d?escapeHtml(dateText(d.createdAt)):'غير متوفر'}. حالة الدين الآن: ${rem<=0?'مدفوع بالكامل':'باقي '+money(rem)}.</li>`}).join('')}</ul>`:'<p class="muted">لا يوجد توزيع محفوظ لهذه الدفعة.</p>';
+      }
+      const label=isDebt?'دين':'دفعة', title=isDebt?r.description:(r.note||'دفعة مالية');
+      return `<article class="operation"><button class="operation-toggle" type="button" aria-expanded="false"><span class="op-badge">${label}</span><span class="op-main"><span class="op-title">${escapeHtml(title)}</span><span class="op-sub">${escapeHtml(dateText(o.date))} · ${escapeHtml(status)}</span></span><span class="op-amount">${money(r.amount)}</span><span aria-hidden="true">⌄</span></button><div class="operation-details" hidden>${details}</div></article>`;
+    }).join('')||'<p class="muted">لا توجد عمليات مطابقة.</p>';
+    $('operationsList').querySelectorAll('.operation-toggle').forEach(btn=>btn.addEventListener('click',()=>{const panel=btn.nextElementSibling;const open=panel.hidden;panel.hidden=!open;btn.setAttribute('aria-expanded',String(open));}));
+  }
+  $('addDebt').addEventListener('click',()=>{
+    const description=$('debtDesc').value.trim()||'دين بدون تفاصيل';
+    const amount=Math.round(Number($('debtAmount').value)*100)/100;
+    if(!Number.isFinite(amount)||amount<=0){alert('أدخل مبلغًا أكبر من صفر.');return}
+    state.debts.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),description,amount,createdAt:now()});
+    $('debtDesc').value='';$('debtAmount').value='';save();$('message').textContent='تمت إضافة الدين.';
+  });
+  $('addPayment').addEventListener('click',()=>{
+    const amount=Math.round(Number($('paymentAmount').value)*100)/100, note=$('paymentNote').value.trim();
+    const t=totals();
+    if(!Number.isFinite(amount)||amount<=0){alert('أدخل مبلغ دفعة أكبر من صفر.');return}
+    if(amount>t.balance+0.001){alert('مبلغ الدفعة أكبر من الرصيد المتبقي ('+money(t.balance)+').');return}
+    let left=Math.round(amount*100)/100;const allocations=[];
+    // FIFO: preserve insertion order and pay oldest unpaid debt first.
+    for(const d of state.debts){
+      if(left<=0)break;
+      const alreadyPaid=state.payments.reduce((s,p)=>s+p.allocations.filter(a=>a.debtId===d.id).reduce((z,a)=>z+a.amount,0),0);
+      const remaining=Math.max(0,Math.round((d.amount-alreadyPaid)*100)/100);
+      if(remaining<=0)continue;
+      const applied=Math.min(left,remaining);
+      allocations.push({debtId:d.id,description:d.description,amount:Math.round(applied*100)/100});
+      left=Math.round((left-applied)*100)/100;
+    }
+    if(left>0.001){alert('تعذّر توزيع كامل الدفعة؛ لم يتم حفظها.');return}
+    state.payments.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),amount, note,createdAt:now(),allocations});
+    $('paymentAmount').value='';$('paymentNote').value='';save();
+    $('message').textContent='تم تسجيل الدفعة وتوزيعها من أقدم دين إلى الأحدث.';$('message').className='good';
+  });
+  ['search','fromDate','toDate'].forEach(id=>$(id).addEventListener('input',render));
+  $('export').addEventListener('click',()=>{
+    const blob=new Blob([JSON.stringify({version:1,exportedAt:now(),...state},null,2)],{type:'application/json'});
+    download(blob,'debt-ledger-backup-'+new Date().toISOString().slice(0,10)+'.json');
+  });
+  $('exportCsv').addEventListener('click',()=>{
+    const rows=[['نوع العملية','التاريخ والوقت','التفاصيل','المبلغ','توزيع الدفعة']];
+    state.debts.forEach(d=>rows.push(['دين',dateText(d.createdAt),d.description,d.amount,'']));
+    state.payments.forEach(p=>rows.push(['دفعة',dateText(p.createdAt),p.note,p.amount,p.allocations.map(a=>`${a.description}: ${money(a.amount)}`).join(' | ')]));
+    const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+    download(new Blob([csv],{type:'text/csv;charset=utf-8'}),'debt-ledger-operations.csv');
+  });
+  $('importBtn').addEventListener('click',()=>$('importFile').click());
+  $('importFile').addEventListener('change',async e=>{
+    const f=e.target.files[0];if(!f)return;
+    try{const x=JSON.parse(await f.text());if(!Array.isArray(x.debts)||!Array.isArray(x.payments))throw Error();
+      if(!confirm('سيتم استبدال بيانات هذه النسخة التجريبية بالبيانات المستوردة. هل تريد المتابعة؟'))return;
+      state={debts:x.debts,payments:x.payments};save();alert('تم الاستيراد بنجاح.');
+    }catch(err){alert('ملف غير صالح. اختر نسخة احتياطية JSON صادرة من دفتر الديون.')}
+    finally{e.target.value=''}
+  });
+  function download(blob,name){const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+  load();render();
+})();
 </script>
 </body>
 </html>
